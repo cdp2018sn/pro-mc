@@ -1,0 +1,2 @@
+[33m293ae54[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m feat: ajout de la gestion Git complète - Scripts d'aide Git, guide complet, README mis à jour et configuration .gitignore pour CDP Missions
+[33mcd9ed3a[m Initial commit: CDP Missions avec PostgreSQL - Application complète de gestion des missions avec base de données PostgreSQL, API REST sécurisée, interface React moderne et documentation complète
