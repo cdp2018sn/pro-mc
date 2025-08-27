@@ -2,6 +2,21 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { authService } from '../services/authService';
 import { User, CreateUserData, UserRole, ROLE_PERMISSIONS } from '../types/auth';
+
+// Mapping des permissions en français
+const PERMISSION_LABELS: Record<string, string> = {
+  canCreateMissions: 'Créer des missions',
+  canEditMissions: 'Modifier des missions',
+  canDeleteMissions: 'Supprimer des missions',
+  canViewAllMissions: 'Voir toutes les missions',
+  canImportMissions: 'Importer des missions',
+  canManageUsers: 'Gérer les utilisateurs',
+  canViewReports: 'Voir les rapports',
+  canEditReports: 'Modifier les rapports',
+  canManageDocuments: 'Gérer les documents',
+  canChangeStatus: 'Changer le statut',
+  canViewDebug: 'Accéder au debug'
+};
 import { toast } from 'react-hot-toast';
 
 
@@ -320,7 +335,7 @@ export const UserManagement: React.FC = () => {
                           <div key={permission} className="flex items-center">
                             <span className={`w-2 h-2 rounded-full mr-2 ${hasAccess ? 'bg-green-500' : 'bg-red-500'}`}></span>
                             <span className={hasAccess ? 'text-green-700' : 'text-red-700'}>
-                              {permission.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
+                              {PERMISSION_LABELS[permission] || permission}
                             </span>
                           </div>
                         ))}
@@ -510,7 +525,7 @@ export const UserManagement: React.FC = () => {
                             <div key={permission} className="flex items-center">
                               <span className={`w-2 h-2 rounded-full mr-2 ${hasAccess ? 'bg-green-500' : 'bg-red-500'}`}></span>
                               <span className={hasAccess ? 'text-green-700' : 'text-red-700'}>
-                                {permission.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
+                                {PERMISSION_LABELS[permission] || permission}
                               </span>
                             </div>
                           ))}
