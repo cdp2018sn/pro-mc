@@ -1,0 +1,7 @@
+[33m154c341[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m feat: ajout du script setup-github-final.bat pour la configuration finale de GitHub
+[33mf3560a5[m feat: ajout du script github-setup.bat pour configurer GitHub correctement
+[33m26d3367[m feat: ajout du script connect-github.bat pour simplifier la connexion a GitHub
+[33m9f8da1e[m feat: ajout de la configuration GitHub - Script setup-github.bat et guide GUIDE_GITHUB.md pour enregistrer le projet sur GitHub
+[33m886490a[m docs: mise a jour des fichiers Git - Amelioration du .gitignore, README et guide Git pour CDP Missions
+[33m293ae54[m feat: ajout de la gestion Git complète - Scripts d'aide Git, guide complet, README mis à jour et configuration .gitignore pour CDP Missions
+[33mcd9ed3a[m Initial commit: CDP Missions avec PostgreSQL - Application complète de gestion des missions avec base de données PostgreSQL, API REST sécurisée, interface React moderne et documentation complète

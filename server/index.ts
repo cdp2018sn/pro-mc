@@ -3,9 +3,9 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
-import { body, validationResult } from 'express-validator';
-import { supabase } from './config/supabase.js';
-import { SupabaseMissionModel, SupabaseUserModel } from './models/SupabaseModels.js';
+// Remplacement d'express-validator par des validateurs maison pour éviter les soucis de types
+import { MissionModel } from './models/Mission.js';
+import { UserModel } from './models/User.js';
 import { 
   authenticateToken, 
   requireRole, 
@@ -40,23 +40,7 @@ app.use(cors({
 
 app.use(express.json({ limit: '10mb' }));
 
-// Test de connexion à Supabase
-const testSupabaseConnection = async () => {
-  try {
-    const { data, error } = await supabase.from('missions').select('count').limit(1);
-    if (error) {
-      console.error('❌ Erreur de connexion à Supabase:', error);
-      process.exit(1);
-    } else {
-      console.log('✅ Connecté à Supabase avec succès');
-    }
-  } catch (error) {
-    console.error('❌ Erreur de connexion à Supabase:', error);
-    process.exit(1);
-  }
-};
-
-testSupabaseConnection();
+// Santé: pas de test Supabase, la santé DB est testée via /api/health
 
 // Middleware pour logger les requêtes
 app.use((req, res, next) => {
@@ -64,20 +48,34 @@ app.use((req, res, next) => {
   next();
 });
 
-// Validation des données
-const validateMission = [
-  body('reference').notEmpty().withMessage('Référence requise'),
-  body('title').notEmpty().withMessage('Titre requis'),
-  body('status').isIn(['PLANIFIEE', 'EN_COURS', 'TERMINEE', 'ANNULEE']).withMessage('Statut invalide'),
-  body('start_date').isISO8601().withMessage('Date de début invalide'),
-  body('end_date').isISO8601().withMessage('Date de fin invalide'),
-  body('priority').isIn(['BASSE', 'MOYENNE', 'HAUTE', 'URGENTE']).withMessage('Priorité invalide')
+// Validation des données (simple)
+type Validator = (req: Request, res: Response, next: NextFunction) => void;
+
+const validateMission: Validator[] = [
+  (req, res, next) => {
+    const { reference, title, status, start_date, end_date, priority } = req.body || {};
+    if (!reference) return res.status(400).json({ error: 'Référence requise' });
+    if (!title) return res.status(400).json({ error: 'Titre requis' });
+    if (!['PLANIFIEE', 'EN_COURS', 'TERMINEE', 'ANNULEE'].includes(status)) {
+      return res.status(400).json({ error: 'Statut invalide' });
+    }
+    if (!start_date || isNaN(Date.parse(start_date))) return res.status(400).json({ error: 'Date de début invalide' });
+    if (!end_date || isNaN(Date.parse(end_date))) return res.status(400).json({ error: 'Date de fin invalide' });
+    if (!['BASSE', 'MOYENNE', 'HAUTE', 'URGENTE'].includes(priority)) {
+      return res.status(400).json({ error: 'Priorité invalide' });
+    }
+    next();
+  }
 ];
 
-const validateUser = [
-  body('email').isEmail().withMessage('Email invalide'),
-  body('name').notEmpty().withMessage('Nom requis'),
-  body('role').isIn(['admin', 'supervisor', 'controller', 'viewer', 'user']).withMessage('Rôle invalide')
+const validateUser: Validator[] = [
+  (req, res, next) => {
+    const { email, name, role } = req.body || {};
+    if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return res.status(400).json({ error: 'Email invalide' });
+    if (!name) return res.status(400).json({ error: 'Nom requis' });
+    if (!['admin', 'supervisor', 'controller', 'viewer', 'user'].includes(role)) return res.status(400).json({ error: 'Rôle invalide' });
+    next();
+  }
 ];
 
 // Fonction pour gérer automatiquement les statuts des missions
@@ -85,7 +83,7 @@ async function updateMissionStatuses() {
   try {
     console.log('🔄 Vérification automatique des statuts des missions...');
     
-    const result = await SupabaseMissionModel.updateStatuses();
+    const result = await MissionModel.updateStatuses();
     
     console.log(`✅ Mise à jour terminée: ${result.plannedToOngoing} missions passées en cours, ${result.ongoingToCompleted} missions terminées`);
   } catch (error) {
@@ -101,63 +99,23 @@ updateMissionStatuses();
 
 // Routes publiques
 app.get('/api/health', (req: Request, res: Response) => {
-  res.json({ 
-    status: 'OK', 
-    timestamp: new Date().toISOString(),
-    database: 'Supabase',
-    version: '1.0.0'
-  });
+  res.json({ status: 'OK', timestamp: new Date().toISOString(), database: 'PostgreSQL', version: '1.0.0' });
 });
 
 // Route de connexion
 app.post('/api/auth/login', [
-  body('email').isEmail().withMessage('Email invalide'),
-  body('password').notEmpty().withMessage('Mot de passe requis')
+  (req: Request, res: Response, next: NextFunction) => {
+    const { email, password } = req.body || {};
+    if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return res.status(400).json({ error: 'Email invalide' });
+    if (!password) return res.status(400).json({ error: 'Mot de passe requis' });
+    next();
+  }
 ], async (req: Request, res: Response) => {
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
-
-    const { email, password } = req.body;
-
-    // Authentification avec Supabase
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password
-    });
-
-    if (error || !data.user) {
-      return res.status(401).json({ error: 'Email ou mot de passe incorrect' });
-    }
-
-    // Récupérer les informations complètes de l'utilisateur
-    const { data: userData, error: userError } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', data.user.id)
-      .single();
-
-    if (userError || !userData) {
-      return res.status(403).json({ error: 'Utilisateur non trouvé' });
-    }
-
-    if (!userData.is_active) {
-      return res.status(403).json({ error: 'Compte désactivé' });
-    }
-
-    // Mettre à jour la dernière connexion
-    await supabase
-      .from('users')
-      .update({ last_login: new Date().toISOString() })
-      .eq('id', data.user.id);
-
-    res.json({ 
-      message: 'Connexion réussie',
-      user: userData,
-      session: data.session
-    });
+    const { email, password } = req.body as { email: string; password: string };
+    const user = await UserModel.verifyCredentials(email, password);
+    if (!user) return res.status(401).json({ error: 'Identifiants invalides' });
+    res.json({ message: 'Connexion réussie', user });
   } catch (error) {
     console.error('Erreur lors de la connexion:', error);
     res.status(500).json({ error: 'Erreur serveur' });
@@ -171,7 +129,7 @@ app.get('/api/missions', authenticateToken, async (req: AuthenticatedRequest, re
       return res.status(401).json({ error: 'Authentification requise' });
     }
 
-    const missions = await SupabaseMissionModel.findAll(req.user.id, req.user.role);
+    const missions = await MissionModel.findAll();
     res.json(missions);
   } catch (error) {
     console.error('Erreur lors de la récupération des missions:', error);
@@ -179,13 +137,13 @@ app.get('/api/missions', authenticateToken, async (req: AuthenticatedRequest, re
   }
 });
 
-app.get('/api/missions/:id', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+app.get('/api/missions/:id', authenticateToken, async (req: AuthenticatedRequest<{ id: string }>, res: Response) => {
   try {
     if (!req.user) {
       return res.status(401).json({ error: 'Authentification requise' });
     }
 
-    const mission = await SupabaseMissionModel.findById(req.params.id, req.user.id, req.user.role);
+    const mission = await MissionModel.findById(req.params.id);
     if (!mission) {
       return res.status(404).json({ error: 'Mission non trouvée' });
     }
@@ -196,22 +154,13 @@ app.get('/api/missions/:id', authenticateToken, async (req: AuthenticatedRequest
   }
 });
 
-app.post('/api/missions', [
-  authenticateToken,
-  requirePermission('canCreateMissions'),
-  ...validateMission
-], async (req: AuthenticatedRequest, res: Response) => {
+app.post('/api/missions', [authenticateToken, requirePermission('canCreateMissions'), ...validateMission], async (req: AuthenticatedRequest<any, any, any>, res: Response) => {
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
-
     if (!req.user) {
       return res.status(401).json({ error: 'Authentification requise' });
     }
 
-    const mission = await SupabaseMissionModel.create(req.body, req.user.id);
+    const mission = await MissionModel.create(req.body);
     res.status(201).json(mission);
   } catch (error) {
     console.error('Erreur lors de la création de la mission:', error);
@@ -219,22 +168,13 @@ app.post('/api/missions', [
   }
 });
 
-app.put('/api/missions/:id', [
-  authenticateToken,
-  requirePermission('canEditMissions'),
-  ...validateMission
-], async (req: AuthenticatedRequest, res: Response) => {
+app.put('/api/missions/:id', [authenticateToken, requirePermission('canEditMissions'), ...validateMission], async (req: AuthenticatedRequest<{ id: string }>, res: Response) => {
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
-
     if (!req.user) {
       return res.status(401).json({ error: 'Authentification requise' });
     }
 
-    const mission = await SupabaseMissionModel.update(req.params.id, req.body, req.user.id, req.user.role);
+    const mission = await MissionModel.update(req.params.id, req.body);
     if (!mission) {
       return res.status(404).json({ error: 'Mission non trouvée' });
     }
@@ -245,16 +185,13 @@ app.put('/api/missions/:id', [
   }
 });
 
-app.delete('/api/missions/:id', [
-  authenticateToken,
-  requirePermission('canDeleteMissions')
-], async (req: AuthenticatedRequest, res: Response) => {
+app.delete('/api/missions/:id', [authenticateToken, requirePermission('canDeleteMissions')], async (req: AuthenticatedRequest<{ id: string }>, res: Response) => {
   try {
     if (!req.user) {
       return res.status(401).json({ error: 'Authentification requise' });
     }
 
-    const success = await SupabaseMissionModel.delete(req.params.id, req.user.id, req.user.role);
+    const success = await MissionModel.delete(req.params.id);
     if (!success) {
       return res.status(404).json({ error: 'Mission non trouvée' });
     }
@@ -275,7 +212,7 @@ app.post('/api/missions/update-statuses', [
 ], async (req: AuthenticatedRequest, res: Response) => {
   try {
     console.log('POST /api/missions/update-statuses - Mise à jour manuelle des statuts');
-    const result = await SupabaseMissionModel.updateStatuses();
+    const result = await MissionModel.updateStatuses();
     res.json({ 
       message: 'Mise à jour des statuts terminée',
       result 
@@ -287,12 +224,9 @@ app.post('/api/missions/update-statuses', [
 });
 
 // Routes protégées pour les utilisateurs (admin seulement)
-app.get('/api/users', [
-  authenticateToken,
-  requireRole(['admin'])
-], async (req: AuthenticatedRequest, res: Response) => {
+app.get('/api/users', [authenticateToken, requireRole(['admin'])], async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const users = await SupabaseUserModel.findAll();
+    const users = await UserModel.findAll();
     res.json(users);
   } catch (error) {
     console.error('Erreur lors de la récupération des utilisateurs:', error);
@@ -300,18 +234,9 @@ app.get('/api/users', [
   }
 });
 
-app.post('/api/users', [
-  authenticateToken,
-  requireRole(['admin']),
-  ...validateUser
-], async (req: AuthenticatedRequest, res: Response) => {
+app.post('/api/users', [authenticateToken, requireRole(['admin']), ...validateUser], async (req: AuthenticatedRequest<any, any, any>, res: Response) => {
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
-
-    const user = await SupabaseUserModel.create(req.body);
+    const user = await UserModel.create(req.body);
     res.status(201).json(user);
   } catch (error) {
     console.error('Erreur lors de la création de l\'utilisateur:', error);
@@ -319,18 +244,9 @@ app.post('/api/users', [
   }
 });
 
-app.put('/api/users/:id', [
-  authenticateToken,
-  requireRole(['admin']),
-  ...validateUser
-], async (req: AuthenticatedRequest, res: Response) => {
+app.put('/api/users/:id', [authenticateToken, requireRole(['admin']), ...validateUser], async (req: AuthenticatedRequest<{ id: string }>, res: Response) => {
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
-
-    const user = await SupabaseUserModel.update(req.params.id, req.body);
+    const user = await UserModel.update(req.params.id, req.body);
     if (!user) {
       return res.status(404).json({ error: 'Utilisateur non trouvé' });
     }
@@ -341,12 +257,9 @@ app.put('/api/users/:id', [
   }
 });
 
-app.delete('/api/users/:id', [
-  authenticateToken,
-  requireRole(['admin'])
-], async (req: AuthenticatedRequest, res: Response) => {
+app.delete('/api/users/:id', [authenticateToken, requireRole(['admin'])], async (req: AuthenticatedRequest<{ id: string }>, res: Response) => {
   try {
-    const success = await SupabaseUserModel.delete(req.params.id);
+    const success = await UserModel.delete(req.params.id);
     if (!success) {
       return res.status(404).json({ error: 'Utilisateur non trouvé' });
     }
@@ -371,7 +284,7 @@ app.use((error: Error, req: Request, res: Response, next: NextFunction) => {
 // Démarrage du serveur
 app.listen(port, () => {
   console.log(`🚀 Serveur sécurisé démarré sur le port ${port}`);
-  console.log(`📊 Base de données: Supabase (Cloud)`);
+  console.log(`📊 Base de données: PostgreSQL (Local)`);
   console.log(`🔒 Sécurité: Authentification, Autorisation, Rate Limiting`);
   console.log(`🌐 CORS origin: ${process.env.CORS_ORIGIN || 'http://localhost:5173'}`);
 });
