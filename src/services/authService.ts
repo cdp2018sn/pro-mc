@@ -28,6 +28,8 @@ const LOGIN_ATTEMPTS_STORAGE_KEY = 'cdp_login_attempts';
 const MAX_LOGIN_ATTEMPTS = 5;
 const BLOCK_DURATION = 15 * 60 * 1000; // 15 minutes
 
+const API_BASE_URL = 'http://localhost:3000/api';
+
 class AuthService {
   private users: UserWithPassword[] = [];
   private loginAttempts: Record<string, { count: number; blockedUntil?: number }> = {};
@@ -133,6 +135,29 @@ class AuthService {
   // Connexion utilisateur
   async login(credentials: LoginCredentials): Promise<User> {
     const { email, password } = credentials;
+    // Tentative d'authentification via l'API pour récupérer un JWT
+    try {
+      const resp = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      if (resp.ok) {
+        const { user, token } = await resp.json();
+        if (token) {
+          localStorage.setItem('jwt_token', token);
+        }
+        // Créer la session alignée avec le format existant
+        const sessionData = {
+          user,
+          expiresAt: Date.now() + 24 * 60 * 60 * 1000
+        };
+        localStorage.setItem('session', btoa(JSON.stringify(sessionData)));
+        return user as User;
+      }
+    } catch (e) {
+      // ignore: fallback local
+    }
 
     // Vérifier si le compte est bloqué
     const attempts = this.loginAttempts[email];
@@ -204,6 +229,7 @@ class AuthService {
   // Déconnexion
   logout(): void {
     localStorage.removeItem('session');
+    localStorage.removeItem('jwt_token');
   }
 
   // Obtenir l'utilisateur actuel
@@ -350,30 +376,21 @@ class AuthService {
     const user = this.users.find(u => u.id === userId);
     if (!user) return false;
 
-    // Vérifier l'ancien mot de passe
-    let isValidCurrentPassword = false;
-    if (user.id === 'admin-1') {
-      isValidCurrentPassword = currentPassword === 'Passer';
-    } else {
-      isValidCurrentPassword = user.password === hashPassword(currentPassword);
-    }
-
-    if (!isValidCurrentPassword) {
-      throw new Error('Mot de passe actuel incorrect');
-    }
-
     // Valider le nouveau mot de passe
     if (newPassword.length < 8) {
       throw new Error('Le nouveau mot de passe doit contenir au moins 8 caractères');
     }
 
-    // Mettre à jour le mot de passe localement
+    // Appeler l'API (admin: currentPassword peut être ignoré côté serveur)
+    try {
+      await PostgresService.changePassword(userId, user.id === 'admin-1' ? undefined : currentPassword, newPassword);
+    } catch (e: any) {
+      throw new Error(e?.message || 'Erreur lors du changement de mot de passe');
+    }
+
+    // Mettre à jour localement
     user.password = hashPassword(newPassword);
     this.saveUsers();
-
-    // Note: Le mot de passe n'est pas synchronisé avec PostgreSQL pour des raisons de sécurité
-    // PostgreSQL gère ses propres mots de passe via l'authentification
-
     return true;
   }
 

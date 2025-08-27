@@ -115,7 +115,17 @@ app.post('/api/auth/login', [
     const { email, password } = req.body as { email: string; password: string };
     const user = await UserModel.verifyCredentials(email, password);
     if (!user) return res.status(401).json({ error: 'Identifiants invalides' });
-    res.json({ message: 'Connexion réussie', user });
+
+    // Émettre un JWT
+    const token = ((): string => {
+      const secret = process.env.JWT_SECRET || 'dev-secret';
+      const payload = { id: user.id, email: user.email, role: user.role } as const;
+      // import dynamique pour éviter dépendance au type
+      const jwt = require('jsonwebtoken') as typeof import('jsonwebtoken');
+      return jwt.sign(payload, secret, { expiresIn: '24h' });
+    })();
+
+    res.json({ message: 'Connexion réussie', user, token });
   } catch (error) {
     console.error('Erreur lors de la connexion:', error);
     res.status(500).json({ error: 'Erreur serveur' });
@@ -236,7 +246,13 @@ app.get('/api/users', [authenticateToken, requireRole(['admin'])], async (req: A
 
 app.post('/api/users', [authenticateToken, requireRole(['admin']), ...validateUser], async (req: AuthenticatedRequest<any, any, any>, res: Response) => {
   try {
-    const user = await UserModel.create(req.body);
+    const body = req.body || {};
+    // Générer un mot de passe si manquant (temporaire)
+    const tempPassword = Math.random().toString(36).slice(-12);
+    const user = await UserModel.create({
+      ...body,
+      password: body.password || tempPassword
+    });
     res.status(201).json(user);
   } catch (error) {
     console.error('Erreur lors de la création de l\'utilisateur:', error);
@@ -267,6 +283,38 @@ app.delete('/api/users/:id', [authenticateToken, requireRole(['admin'])], async 
   } catch (error) {
     console.error('Erreur lors de la suppression de l\'utilisateur:', error);
     res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+// Changement de mot de passe (utilisateur courant ou admin)
+app.post('/api/users/:id/change-password', authenticateToken, async (req: AuthenticatedRequest<{ id: string }, any, { currentPassword?: string; newPassword: string }>, res: Response) => {
+  try {
+    if (!req.user) return res.status(401).json({ error: 'Authentification requise' });
+    const { id } = req.params;
+    const { currentPassword, newPassword } = req.body || {};
+
+    if (!newPassword || newPassword.length < 8) {
+      return res.status(400).json({ error: 'Nouveau mot de passe invalide (min 8 caractères)' });
+    }
+
+    // Admin peut changer sans currentPassword, sinon vérifier l'ancien
+    if (req.user.role !== 'admin') {
+      if (!currentPassword) return res.status(400).json({ error: 'Ancien mot de passe requis' });
+      const user = await UserModel.findByIdWithPassword(id);
+      if (!user) return res.status(404).json({ error: 'Utilisateur non trouvé' });
+      const bcrypt = require('bcryptjs') as typeof import('bcryptjs');
+      const ok = await bcrypt.compare(currentPassword, user.password_hash);
+      if (!ok) return res.status(400).json({ error: 'Ancien mot de passe incorrect' });
+      // Un utilisateur non admin ne peut changer que son propre mot de passe
+      if (req.user.id !== id) return res.status(403).json({ error: 'Non autorisé' });
+    }
+
+    const success = await UserModel.changePassword(id, newPassword);
+    if (!success) return res.status(500).json({ error: 'Échec du changement de mot de passe' });
+    return res.json({ message: 'Mot de passe changé avec succès' });
+  } catch (error) {
+    console.error('Erreur changement de mot de passe:', error);
+    return res.status(500).json({ error: 'Erreur serveur' });
   }
 });
 

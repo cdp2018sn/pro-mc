@@ -158,8 +158,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ missions }) => {
     };
 
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6">
-        <div className="bg-white p-4 rounded-lg shadow-md h-[400px]">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 px-4 sm:px-6">
+        <div className="bg-white p-4 rounded-lg shadow-md h-64 sm:h-80 md:h-[400px]">
           <h2 className="text-lg font-semibold mb-4">État des missions</h2>
           <div className="h-[calc(100%-2rem)]">
             <Suspense fallback={<div className="h-full w-full flex items-center justify-center">Chargement du graphique...</div>}>
@@ -167,7 +167,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ missions }) => {
             </Suspense>
           </div>
         </div>
-        <div className="bg-white p-4 rounded-lg shadow-md h-[400px]">
+        <div className="bg-white p-4 rounded-lg shadow-md h-64 sm:h-80 md:h-[400px]">
           <h2 className="text-lg font-semibold mb-4">Missions par mois</h2>
           <div className="h-[calc(100%-2rem)]">
             <Suspense fallback={<div className="h-full w-full flex items-center justify-center">Chargement du graphique...</div>}>
@@ -180,7 +180,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ missions }) => {
   };
 
   const renderStats = () => (
-    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 px-6">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 px-4 sm:px-6">
       <div className="bg-white p-6 rounded-lg shadow-md">
         <h3 className="text-lg font-semibold text-gray-600">Total Missions</h3>
         <p className="text-3xl font-bold text-[#e67e22]">{stats.totalMissions}</p>
@@ -217,17 +217,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ missions }) => {
       .slice(0, 5);
 
     return (
-      <div className="bg-white rounded-lg shadow-md mt-6 mx-6">
-        <div className="p-6">
+      <div className="bg-white rounded-lg shadow-md mt-6 mx-4 sm:mx-6">
+        <div className="p-4 sm:p-6">
           <h2 className="text-lg font-semibold mb-4">Missions récentes</h2>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date de début</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Titre</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Statut</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Organisation</th>
+                  <th className="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date de début</th>
+                  <th className="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Titre</th>
+                  <th className="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Statut</th>
+                  <th className="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Organisation</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -240,13 +240,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ missions }) => {
 
                     return (
                       <tr key={mission.id}>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm text-gray-500">
                           {formattedDate}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        <td className="px-3 md:px-6 py-2 md:py-4 whitespace-normal md:whitespace-nowrap break-words text-sm font-medium text-gray-900 max-w-[200px] md:max-w-none">
                           {mission.title}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap">
                           <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
                             ${mission.status === 'EN_COURS' ? 'bg-orange-100 text-orange-800' : 
                               mission.status === 'TERMINEE' ? 'bg-green-100 text-green-800' : 
@@ -256,7 +256,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ missions }) => {
                              'En attente'}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-3 md:px-6 py-2 md:py-4 whitespace-normal md:whitespace-nowrap break-words text-sm text-gray-500 max-w-[160px] md:max-w-none">
                           {mission.organization}
                         </td>
                       </tr>
@@ -264,7 +264,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ missions }) => {
                   })
                 ) : (
                   <tr>
-                    <td colSpan={4} className="px-6 py-4 text-center text-sm text-gray-500">
+                    <td colSpan={4} className="px-3 md:px-6 py-2 md:py-4 text-center text-sm text-gray-500">
                       Aucune mission récente à afficher
                     </td>
                   </tr>
@@ -295,17 +295,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ missions }) => {
       .slice(0, 5);
 
     return (
-      <div className="bg-white rounded-lg shadow-md mt-6 mx-6">
-        <div className="p-6">
+      <div className="bg-white rounded-lg shadow-md mt-6 mx-4 sm:mx-6">
+        <div className="p-4 sm:p-6">
           <h2 className="text-lg font-semibold mb-4">Missions à venir</h2>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date de début</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Titre</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Statut</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Organisation</th>
+                  <th className="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date de début</th>
+                  <th className="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Titre</th>
+                  <th className="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Statut</th>
+                  <th className="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Organisation</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -318,13 +318,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ missions }) => {
 
                     return (
                       <tr key={mission.id}>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm text-gray-500">
                           {formattedDate}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        <td className="px-3 md:px-6 py-2 md:py-4 whitespace-normal md:whitespace-nowrap break-words text-sm font-medium text-gray-900 max-w-[200px] md:max-w-none">
                           {mission.title}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap">
                           <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
                             ${mission.status === 'PLANIFIEE' ? 'bg-blue-100 text-blue-800' : 
                               mission.status === 'EN_COURS' ? 'bg-orange-100 text-orange-800' : 
@@ -336,7 +336,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ missions }) => {
                              'En attente'}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-3 md:px-6 py-2 md:py-4 whitespace-normal md:whitespace-nowrap break-words text-sm text-gray-500 max-w-[160px] md:max-w-none">
                           {mission.organization}
                         </td>
                       </tr>
@@ -344,7 +344,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ missions }) => {
                   })
                 ) : (
                   <tr>
-                    <td colSpan={4} className="px-6 py-4 text-center text-sm text-gray-500">
+                    <td colSpan={4} className="px-3 md:px-6 py-2 md:py-4 text-center text-sm text-gray-500">
                       Aucune mission à venir à afficher
                     </td>
                   </tr>
@@ -359,7 +359,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ missions }) => {
 
   return (
     <div className="min-h-screen bg-gray-100">
-      <div className="max-w-7xl mx-auto py-6">
+      <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6">
         {/* Alertes de changement de statut */}
         <StatusChangeAlerts missions={missions} onRefresh={loadMissions} />
         

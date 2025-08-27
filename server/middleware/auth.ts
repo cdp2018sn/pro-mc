@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { UserModel } from '../models/User.js';
+import { pool } from '../config/database.js';
 
 // Interface pour étendre Request avec l'utilisateur
 export interface AuthenticatedRequest<P = any, ResBody = any, ReqBody = any, ReqQuery = any> extends Request<P, ResBody, ReqBody, ReqQuery> {
@@ -35,6 +36,7 @@ export const authenticateToken = async (req: AuthenticatedRequest, res: Response
       id: payload.id,
       email: payload.email,
       role: payload.role,
+      permissions: (user as any).permissions || undefined,
     };
 
     next();
@@ -64,14 +66,63 @@ export const requireRole = (roles: string[]) => {
 };
 
 // Middleware d'autorisation par permission
+const ROLE_PERMISSIONS: Record<string, Record<string, boolean>> = {
+  admin: {
+    canCreateMissions: true,
+    canEditMissions: true,
+    canDeleteMissions: true,
+    canManageUsers: true,
+    canViewAllMissions: true,
+  },
+  supervisor: {
+    canCreateMissions: true,
+    canEditMissions: true,
+    canDeleteMissions: true,
+    canManageUsers: false,
+    canViewAllMissions: true,
+  },
+  controller: {
+    canCreateMissions: true,
+    canEditMissions: true, // limité par ownership
+    canDeleteMissions: false,
+    canManageUsers: false,
+    canViewAllMissions: false,
+  },
+  viewer: {
+    canCreateMissions: false,
+    canEditMissions: false,
+    canDeleteMissions: false,
+    canManageUsers: false,
+    canViewAllMissions: false,
+  },
+  user: {
+    canCreateMissions: false,
+    canEditMissions: false,
+    canDeleteMissions: false,
+    canManageUsers: false,
+    canViewAllMissions: false,
+  },
+};
+
 export const requirePermission = (permission: string) => {
   return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     if (!req.user) {
       return res.status(401).json({ error: 'Authentification requise' });
     }
 
-    // Simple règle par défaut: seuls admin/supervisor peuvent passer ce middleware
-    if (!['admin', 'supervisor'].includes(req.user.role)) {
+    // Priorité aux permissions personnalisées si présentes sur la requête (hydratées en amont) ou en base
+    const custom = (req.user.permissions as any) || undefined;
+    if (custom && typeof custom === 'object' && permission in custom) {
+      const allowedCustom = Boolean((custom as any)[permission]);
+      if (!allowedCustom) {
+        return res.status(403).json({ error: 'Permission insuffisante', required: permission });
+      }
+      return next();
+    }
+
+    const role = req.user.role || 'user';
+    const allowed = ROLE_PERMISSIONS[role]?.[permission] || false;
+    if (!allowed) {
       return res.status(403).json({ error: 'Permission insuffisante', required: permission });
     }
 
@@ -87,10 +138,21 @@ export const requireOwnership = (table: string) => {
     }
 
     const { id } = req.params as any;
-    // Règle minimale: admin ok, sinon on laisse passer (à spécialiser si besoin)
-    if (req.user.role === 'admin') return next();
     if (!id) return res.status(400).json({ error: 'ID manquant' });
-    return next();
+    if (req.user.role === 'admin') return next();
+
+    try {
+      const result = await pool.query(`SELECT created_by FROM ${table} WHERE id = $1`, [id]);
+      const row = result.rows[0];
+      if (!row) return res.status(404).json({ error: 'Ressource non trouvée' });
+      if (row.created_by !== req.user.id) {
+        return res.status(403).json({ error: 'Accès non autorisé' });
+      }
+      return next();
+    } catch (e) {
+      console.error('Erreur de vérification ownership:', e);
+      return res.status(500).json({ error: 'Erreur serveur' });
+    }
   };
 };
 

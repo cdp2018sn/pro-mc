@@ -5,10 +5,24 @@ import { User, CreateUserData, UpdateUserData } from '../types/auth';
 export class PostgresService {
   private static readonly API_BASE_URL = 'http://localhost:3000/api';
 
+  private static getAuthHeaders(): HeadersInit {
+    try {
+      const token = localStorage.getItem('jwt_token');
+      if (token) {
+        return { Authorization: `Bearer ${token}` };
+      }
+    } catch {}
+    return {};
+  }
+
   // Méthodes pour les utilisateurs
   static async getUsers(): Promise<User[]> {
     try {
-      const response = await fetch(`${this.API_BASE_URL}/users`);
+      const response = await fetch(`${this.API_BASE_URL}/users`, {
+        headers: {
+          ...this.getAuthHeaders(),
+        }
+      });
       if (!response.ok) {
         throw new Error('Erreur lors de la récupération des utilisateurs');
       }
@@ -42,7 +56,11 @@ export class PostgresService {
 
   static async getUserByEmail(email: string): Promise<User | null> {
     try {
-      const response = await fetch(`${this.API_BASE_URL}/users?email=${email}`);
+      const response = await fetch(`${this.API_BASE_URL}/users?email=${encodeURIComponent(email)}`, {
+        headers: {
+          ...this.getAuthHeaders(),
+        }
+      });
       if (!response.ok) {
         throw new Error('Erreur lors de la récupération de l\'utilisateur');
       }
@@ -62,6 +80,7 @@ export class PostgresService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...this.getAuthHeaders(),
         },
         body: JSON.stringify(userData),
       });
@@ -86,6 +105,7 @@ export class PostgresService {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
+          ...this.getAuthHeaders(),
         },
         body: JSON.stringify(userData),
       });
@@ -108,6 +128,9 @@ export class PostgresService {
     try {
       const response = await fetch(`${this.API_BASE_URL}/users/${id}`, {
         method: 'DELETE',
+        headers: {
+          ...this.getAuthHeaders(),
+        }
       });
       
       if (!response.ok) {
@@ -122,10 +145,30 @@ export class PostgresService {
     }
   }
 
+  // Changer le mot de passe via l'API
+  static async changePassword(userId: string, currentPassword: string | undefined, newPassword: string): Promise<void> {
+    const response = await fetch(`${this.API_BASE_URL}/users/${userId}/change-password`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...this.getAuthHeaders(),
+      },
+      body: JSON.stringify({ currentPassword, newPassword })
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err?.error || 'Erreur lors du changement de mot de passe');
+    }
+  }
+
   // Méthodes pour les missions
   static async getMissions(): Promise<any[]> {
     try {
-      const response = await fetch(`${this.API_BASE_URL}/missions`);
+      const response = await fetch(`${this.API_BASE_URL}/missions`, {
+        headers: {
+          ...this.getAuthHeaders(),
+        }
+      });
       if (!response.ok) {
         throw new Error('Erreur lors de la récupération des missions');
       }
@@ -176,6 +219,7 @@ export class PostgresService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...this.getAuthHeaders(),
         },
         body: JSON.stringify(missionData),
       });
@@ -200,6 +244,7 @@ export class PostgresService {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
+          ...this.getAuthHeaders(),
         },
         body: JSON.stringify(missionData),
       });
@@ -222,6 +267,9 @@ export class PostgresService {
     try {
       const response = await fetch(`${this.API_BASE_URL}/missions/${id}`, {
         method: 'DELETE',
+        headers: {
+          ...this.getAuthHeaders(),
+        }
       });
       
       if (!response.ok) {

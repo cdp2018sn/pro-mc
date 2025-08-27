@@ -6,27 +6,28 @@ export interface User {
   email: string;
   name: string;
   role: 'admin' | 'supervisor' | 'controller' | 'viewer' | 'user';
-  password: string;
+  password_hash: string;
   department?: string;
   phone?: string;
   is_active: boolean;
+  permissions?: Record<string, boolean>;
   last_login?: Date;
   created_at?: Date;
   updated_at?: Date;
 }
 
-export interface UserWithoutPassword extends Omit<User, 'password'> {}
+export interface UserWithoutPassword extends Omit<User, 'password_hash'> {}
 
 export class UserModel {
   // Créer un nouvel utilisateur
-  static async create(userData: Omit<User, 'id' | 'created_at' | 'updated_at'>): Promise<UserWithoutPassword> {
+  static async create(userData: Omit<User, 'id' | 'created_at' | 'updated_at' | 'password_hash'> & { password: string }): Promise<UserWithoutPassword> {
     const hashedPassword = await bcrypt.hash(userData.password, 10);
     
     const query = `
       INSERT INTO users (
-        email, name, role, password, department, phone, is_active
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7)
-      RETURNING id, email, name, role, department, phone, is_active, last_login, created_at, updated_at
+        email, name, role, password_hash, department, phone, is_active, permissions
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, COALESCE($8, '{}'::jsonb))
+      RETURNING id, email, name, role, department, phone, is_active, permissions, last_login, created_at, updated_at
     `;
     
     const values = [
@@ -36,7 +37,8 @@ export class UserModel {
       hashedPassword,
       userData.department || null,
       userData.phone || null,
-      userData.is_active
+      userData.is_active,
+      userData.permissions ? JSON.stringify(userData.permissions) : null
     ];
 
     const result = await pool.query(query, values);
@@ -46,7 +48,7 @@ export class UserModel {
   // Obtenir tous les utilisateurs
   static async findAll(): Promise<UserWithoutPassword[]> {
     const query = `
-      SELECT id, email, name, role, department, phone, is_active, last_login, created_at, updated_at
+      SELECT id, email, name, role, department, phone, is_active, permissions, last_login, created_at, updated_at
       FROM users 
       ORDER BY created_at DESC
     `;
@@ -57,7 +59,7 @@ export class UserModel {
   // Obtenir un utilisateur par ID
   static async findById(id: string): Promise<UserWithoutPassword | null> {
     const query = `
-      SELECT id, email, name, role, department, phone, is_active, last_login, created_at, updated_at
+      SELECT id, email, name, role, department, phone, is_active, permissions, last_login, created_at, updated_at
       FROM users 
       WHERE id = $1
     `;
@@ -72,8 +74,15 @@ export class UserModel {
     return result.rows[0] || null;
   }
 
+  // Obtenir un utilisateur par ID (avec password_hash)
+  static async findByIdWithPassword(id: string): Promise<User | null> {
+    const query = 'SELECT * FROM users WHERE id = $1';
+    const result = await pool.query(query, [id]);
+    return result.rows[0] || null;
+  }
+
   // Mettre à jour un utilisateur
-  static async update(id: string, updates: Partial<Omit<User, 'id' | 'password' | 'created_at'>>): Promise<UserWithoutPassword | null> {
+  static async update(id: string, updates: Partial<Omit<User, 'id' | 'password_hash' | 'created_at'>>): Promise<UserWithoutPassword | null> {
     const setClause = Object.keys(updates)
       .map((key, index) => `${key} = $${index + 2}`)
       .join(', ');
@@ -82,10 +91,17 @@ export class UserModel {
       UPDATE users 
       SET ${setClause}, updated_at = NOW()
       WHERE id = $1
-      RETURNING id, email, name, role, department, phone, is_active, last_login, created_at, updated_at
+      RETURNING id, email, name, role, department, phone, is_active, permissions, last_login, created_at, updated_at
     `;
     
-    const values = [id, ...Object.values(updates)];
+    const values = [
+      id,
+      ...Object.values(
+        Object.fromEntries(
+          Object.entries(updates).map(([k, v]) => [k, k === 'permissions' && v ? JSON.stringify(v) : v])
+        )
+      )
+    ];
     const result = await pool.query(query, values);
     return result.rows[0] || null;
   }
@@ -96,7 +112,7 @@ export class UserModel {
     
     const query = `
       UPDATE users 
-      SET password = $2, updated_at = NOW()
+      SET password_hash = $2, updated_at = NOW()
       WHERE id = $1
     `;
     
@@ -130,7 +146,7 @@ export class UserModel {
       return null;
     }
 
-    const isValidPassword = await bcrypt.compare(password, user.password);
+    const isValidPassword = await bcrypt.compare(password, user.password_hash);
     
     if (!isValidPassword) {
       return null;
@@ -140,8 +156,8 @@ export class UserModel {
     await this.updateLastLogin(user.id!);
 
     // Retourner l'utilisateur sans le mot de passe
-    const { password: _, ...userWithoutPassword } = user;
-    return userWithoutPassword;
+    const { password_hash: _, ...userWithoutPassword } = user as any;
+    return userWithoutPassword as UserWithoutPassword;
   }
 
   // Créer l'utilisateur administrateur par défaut

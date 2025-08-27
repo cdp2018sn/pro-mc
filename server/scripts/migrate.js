@@ -18,12 +18,28 @@ async function migrate() {
         department VARCHAR(255),
         phone VARCHAR(50),
         password_hash VARCHAR(255),
+        permissions JSONB DEFAULT '{}'::jsonb,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         last_login TIMESTAMP
       )
     `);
     console.log('✅ Table users créée');
+
+    // Assurer la présence de la colonne permissions si la table existait déjà
+    await client.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'users' AND column_name = 'permissions'
+        ) THEN
+          ALTER TABLE users ADD COLUMN permissions JSONB DEFAULT '{}'::jsonb;
+        END IF;
+      END
+      $$;
+    `);
+    console.log('✅ Colonne permissions assurée sur users');
 
     // Table des missions
     await client.query(`
