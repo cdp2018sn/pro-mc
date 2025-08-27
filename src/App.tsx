@@ -16,7 +16,7 @@ import { LoginForm } from './components/LoginForm';
 import { UserManagement } from './components/UserManagement';
 import { ChangePassword } from './components/ChangePassword';
 import { useState, useEffect, useRef, ReactNode } from 'react';
-import { UserRole } from './types/auth';
+
 
 // Composant de protection pour les routes administrateur
 function ProtectedAdminRoute({ children }: { children: ReactNode }) {
@@ -83,27 +83,7 @@ function Navigation() {
     };
   }, []);
 
-  const getRoleBadgeColor = (role: UserRole) => {
-    switch (role) {
-      case 'admin': return 'bg-red-100 text-red-800';
-      case 'supervisor': return 'bg-blue-100 text-blue-800';
-      case 'controller': return 'bg-green-100 text-green-800';
-      case 'viewer': return 'bg-yellow-100 text-yellow-800';
-      case 'user': return 'bg-gray-100 text-gray-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
 
-  const getRoleLabel = (role: UserRole) => {
-    switch (role) {
-      case 'admin': return 'Admin';
-      case 'supervisor': return 'Superviseur';
-      case 'controller': return 'Contrôleur';
-      case 'viewer': return 'Lecteur';
-      case 'user': return 'User';
-      default: return role;
-    }
-  };
 
   return (
     <nav className="bg-white shadow-md">
