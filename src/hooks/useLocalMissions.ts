@@ -22,8 +22,11 @@ export const useLocalMissions = () => {
         for (const missionData of testMissionsData.default) {
           console.log(`📋 Chargement de la mission: ${missionData.reference}`);
           
+          // Destructurer pour exclure l'id et laisser Dexie générer un nouvel id
+          const { id, ...missionDataWithoutId } = missionData;
+          
           // Ajouter la mission
-          const mission = await db.addMission(missionData);
+          const mission = await db.addMission(missionDataWithoutId);
           
           // Ajouter les constats (findings)
           if (missionData.findings && missionData.findings.length > 0) {
