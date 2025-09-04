@@ -98,7 +98,7 @@
     "address": "Avenue Georges Bush, Dakar",
     "start_date": "2025-08-24T00:02:54.860Z",
     "end_date": "2025-08-31T00:02:54.860Z",
-    "status": "PLANIFIEE",
+    "status": "TERMINEE",
     "motif_controle": "Programme annuel",
     "decision_numero": "DEC-2024-004",
     "date_decision": "2025-08-19T00:02:54.860Z",
@@ -112,9 +112,33 @@
       "Vérifier les procédures de chiffrement",
       "Évaluer la formation du personnel"
     ],
-    "findings": [],
+    "findings": [
+      {
+        "id": "finding-5",
+        "mission_id": "test-1755561774864-4",
+        "type": "NON_CONFORMITE_MAJEURE",
+        "description": "Traitement de données sensibles sans base légale appropriée",
+        "reference_legale": "Article 9 du RGPD",
+        "recommandation": "Obtenir le consentement explicite des clients",
+        "delai_correction": 30,
+        "date_constat": "2025-08-27T00:00:00.000Z",
+        "created_at": "2025-08-27T00:00:00.000Z",
+        "updated_at": "2025-08-27T00:00:00.000Z"
+      }
+    ],
     "remarks": [],
-    "sanctions": [],
+    "sanctions": [
+      {
+        "id": "sanction-5",
+        "mission_id": "test-1755561774864-4",
+        "type": "RESTRICTION_TRAITEMENT",
+        "description": "Restriction du traitement des données sensibles",
+        "amount": null,
+        "decision_date": "2025-09-02T00:00:00.000Z",
+        "created_at": "2025-09-02T00:00:00.000Z",
+        "updated_at": "2025-09-02T00:00:00.000Z"
+      }
+    ],
     "documents": [],
     "created_at": "2025-08-19T00:02:54.860Z",
     "updated_at": "2025-08-19T00:02:54.860Z",
@@ -129,7 +153,7 @@
     "address": "Route de Rufisque, Dakar",
     "start_date": "2025-08-09T00:02:54.860Z",
     "end_date": "2025-08-17T00:02:54.860Z",
-    "status": "EN_COURS",
+    "status": "TERMINEE",
     "motif_controle": "Suite a une plainte",
     "decision_numero": "DEC-2024-005",
     "date_decision": "2025-08-19T00:02:54.860Z",
@@ -142,9 +166,33 @@
       "Contrôler les procédures de rétention",
       "Évaluer la sécurité des communications"
     ],
-    "findings": [],
+    "findings": [
+      {
+        "id": "finding-4",
+        "mission_id": "test-1755561774864-5",
+        "type": "OBSERVATION",
+        "description": "Manque de transparence dans les conditions contractuelles",
+        "reference_legale": "Article 12 du RGPD",
+        "recommandation": "Améliorer la lisibilité des conditions d'utilisation",
+        "delai_correction": 20,
+        "date_constat": "2025-08-28T00:00:00.000Z",
+        "created_at": "2025-08-28T00:00:00.000Z",
+        "updated_at": "2025-08-28T00:00:00.000Z"
+      }
+    ],
     "remarks": [],
-    "sanctions": [],
+    "sanctions": [
+      {
+        "id": "sanction-4",
+        "mission_id": "test-1755561774864-5",
+        "type": "INJONCTION",
+        "description": "Injonction de modifier les conditions contractuelles",
+        "amount": null,
+        "decision_date": "2025-09-05T00:00:00.000Z",
+        "created_at": "2025-09-05T00:00:00.000Z",
+        "updated_at": "2025-09-05T00:00:00.000Z"
+      }
+    ],
     "documents": [],
     "created_at": "2025-08-19T00:02:54.860Z",
     "updated_at": "2025-08-19T00:02:54.860Z",
@@ -172,9 +220,33 @@
       "Vérifier la protection des données clients",
       "Contrôler la conformité des contrats"
     ],
-    "findings": [],
+    "findings": [
+      {
+        "id": "finding-1",
+        "mission_id": "test-1755561774864-6",
+        "type": "NON_CONFORMITE_MAJEURE",
+        "description": "Non-respect des délais de notification des violations de données",
+        "reference_legale": "Article 33 du RGPD",
+        "recommandation": "Mettre en place un système de notification automatique",
+        "delai_correction": 30,
+        "date_constat": "2025-08-10T00:00:00.000Z",
+        "created_at": "2025-08-10T00:00:00.000Z",
+        "updated_at": "2025-08-10T00:00:00.000Z"
+      }
+    ],
     "remarks": [],
-    "sanctions": [],
+    "sanctions": [
+      {
+        "id": "sanction-1",
+        "mission_id": "test-1755561774864-6",
+        "type": "AVERTISSEMENT",
+        "description": "Avertissement pour non-respect des délais de notification",
+        "amount": null,
+        "decision_date": "2025-08-15T00:00:00.000Z",
+        "created_at": "2025-08-15T00:00:00.000Z",
+        "updated_at": "2025-08-15T00:00:00.000Z"
+      }
+    ],
     "documents": [],
     "created_at": "2025-08-19T00:02:54.860Z",
     "updated_at": "2025-08-19T00:02:54.860Z",
@@ -189,7 +261,7 @@
     "address": "Siège virtuel",
     "start_date": "2025-08-29T00:02:54.860Z",
     "end_date": "2025-09-05T00:02:54.860Z",
-    "status": "PLANIFIEE",
+    "status": "TERMINEE",
     "motif_controle": "Decision de la session pleniere",
     "decision_numero": "DEC-2024-007",
     "date_decision": "2025-08-19T00:02:54.860Z",
@@ -202,9 +274,33 @@
       "Contrôler la protection des mineurs",
       "Évaluer la transparence des algorithmes"
     ],
-    "findings": [],
+    "findings": [
+      {
+        "id": "finding-3",
+        "mission_id": "test-1755561774864-7",
+        "type": "NON_CONFORMITE_MAJEURE",
+        "description": "Collecte de données personnelles de mineurs sans consentement parental",
+        "reference_legale": "Article 8 du RGPD",
+        "recommandation": "Mettre en place un système de vérification d'âge",
+        "delai_correction": 45,
+        "date_constat": "2025-09-01T00:00:00.000Z",
+        "created_at": "2025-09-01T00:00:00.000Z",
+        "updated_at": "2025-09-01T00:00:00.000Z"
+      }
+    ],
     "remarks": [],
-    "sanctions": [],
+    "sanctions": [
+      {
+        "id": "sanction-3",
+        "mission_id": "test-1755561774864-7",
+        "type": "PECUNIAIRE",
+        "description": "Sanction pécuniaire pour collecte illicite de données de mineurs",
+        "amount": 5000000,
+        "decision_date": "2025-09-10T00:00:00.000Z",
+        "created_at": "2025-09-10T00:00:00.000Z",
+        "updated_at": "2025-09-10T00:00:00.000Z"
+      }
+    ],
     "documents": [],
     "created_at": "2025-08-19T00:02:54.860Z",
     "updated_at": "2025-08-19T00:02:54.860Z",
@@ -233,9 +329,33 @@
       "Contrôler les transferts internationaux",
       "Évaluer la conformité des contrats"
     ],
-    "findings": [],
+    "findings": [
+      {
+        "id": "finding-2",
+        "mission_id": "test-1755561774864-8",
+        "type": "NON_CONFORMITE_MINEURE",
+        "description": "Transferts de données vers des pays tiers sans garanties appropriées",
+        "reference_legale": "Article 46 du RGPD",
+        "recommandation": "Mettre en place des clauses contractuelles types",
+        "delai_correction": 60,
+        "date_constat": "2025-08-20T00:00:00.000Z",
+        "created_at": "2025-08-20T00:00:00.000Z",
+        "updated_at": "2025-08-20T00:00:00.000Z"
+      }
+    ],
     "remarks": [],
-    "sanctions": [],
+    "sanctions": [
+      {
+        "id": "sanction-2",
+        "mission_id": "test-1755561774864-8",
+        "type": "MISE_EN_DEMEURE",
+        "description": "Mise en demeure pour transferts de données non conformes",
+        "amount": null,
+        "decision_date": "2025-08-25T00:00:00.000Z",
+        "created_at": "2025-08-25T00:00:00.000Z",
+        "updated_at": "2025-08-25T00:00:00.000Z"
+      }
+    ],
     "documents": [],
     "created_at": "2025-08-19T00:02:54.860Z",
     "updated_at": "2025-08-19T00:02:54.860Z",

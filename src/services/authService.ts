@@ -37,7 +37,7 @@ class AuthService {
   constructor() {
     this.loadUsers();
     this.loadLoginAttempts();
-    this.syncWithPostgres(); // Synchroniser avec PostgreSQL au démarrage
+    // this.syncWithPostgres(); // Synchronisation avec PostgreSQL temporairement désactivée
   }
 
   // Synchroniser avec PostgreSQL

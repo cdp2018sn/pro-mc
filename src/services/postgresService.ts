@@ -18,11 +18,21 @@ export class PostgresService {
   // Méthodes pour les utilisateurs
   static async getUsers(): Promise<User[]> {
     try {
+      // Vérifier d'abord si le serveur backend est disponible
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2000); // Timeout de 2 secondes
+      
       const response = await fetch(`${this.API_BASE_URL}/users`, {
         headers: {
           ...this.getAuthHeaders(),
-        }
+        },
+        mode: 'cors',
+        credentials: 'include',
+        signal: controller.signal
       });
+      
+      clearTimeout(timeoutId);
+      
       if (!response.ok) {
         throw new Error('Erreur lors de la récupération des utilisateurs');
       }
@@ -48,7 +58,7 @@ export class PostgresService {
       
       return users;
     } catch (error) {
-      console.error('Erreur lors de la récupération des utilisateurs:', error);
+      console.log('🔄 Serveur backend non disponible, utilisation du mode local');
       // Fallback vers localStorage si l'API n'est pas disponible
       return this.getUsersFromLocalStorage();
     }

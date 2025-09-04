@@ -21,7 +21,29 @@ class LocalStorageDatabase extends Dexie {
 
   // Missions
   async getAllMissions(): Promise<Mission[]> {
-    return await this.missions.toArray();
+    const missions = await this.missions.toArray();
+    
+    // Pour chaque mission, récupérer les données associées
+    const missionsWithData = await Promise.all(
+      missions.map(async (mission) => {
+        const [findings, sanctions, remarks, documents] = await Promise.all([
+          this.getFindingsForMission(mission.id),
+          this.getSanctionsForMission(mission.id),
+          this.getRemarksForMission(mission.id),
+          this.getDocumentsForMission(mission.id)
+        ]);
+        
+        return {
+          ...mission,
+          findings,
+          sanctions,
+          remarks,
+          documents
+        };
+      })
+    );
+    
+    return missionsWithData;
   }
 
   async addMission(mission: Omit<Mission, 'id'>): Promise<Mission> {
@@ -93,6 +115,17 @@ class LocalStorageDatabase extends Dexie {
 
   async getSanctionsForMission(missionId: string): Promise<Sanction[]> {
     return await this.sanctions.where('mission_id').equals(missionId).toArray();
+  }
+
+  async updateSanction(sanctionId: string, updates: Partial<Sanction>): Promise<void> {
+    await this.sanctions.update(sanctionId, {
+      ...updates,
+      updated_at: new Date().toISOString()
+    });
+  }
+
+  async deleteSanction(sanctionId: string): Promise<void> {
+    await this.sanctions.delete(sanctionId);
   }
 
   // Documents

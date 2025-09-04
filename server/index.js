@@ -12,8 +12,18 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware de sécurité
-app.use(helmet());
-app.use(cors());
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
+
+// Configuration CORS détaillée
+app.use(cors({
+  origin: ['http://localhost:5173', 'http://localhost:5174', 'http://127.0.0.1:5173', 'http://127.0.0.1:5174'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+}));
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, '../dist')));
 
@@ -200,16 +210,35 @@ app.delete('/api/users/:id', async (req, res) => {
 // Routes pour les missions
 app.get('/api/missions', async (req, res) => {
   try {
-    const result = await pool.query(`
-      SELECT m.*, 
-             u1.name as created_by_name,
-             u2.name as assigned_to_name
-      FROM missions m
-      LEFT JOIN users u1 ON m.created_by = u1.id
-      LEFT JOIN users u2 ON m.assigned_to = u2.id
-      ORDER BY m.created_at DESC
-    `);
-    res.json(result.rows);
+    // Essayer d'abord de récupérer depuis PostgreSQL
+    try {
+      const result = await pool.query(`
+        SELECT m.*, 
+               u1.name as created_by_name,
+               u2.name as assigned_to_name
+        FROM missions m
+        LEFT JOIN users u1 ON m.created_by = u1.id
+        LEFT JOIN users u2 ON m.assigned_to = u2.id
+        ORDER BY m.created_at DESC
+      `);
+      res.json(result.rows);
+    } catch (dbError) {
+      console.log('⚠️ Erreur PostgreSQL, utilisation des données de test:', dbError.message);
+      
+      // Fallback: utiliser les données de test JSON
+      const fs = require('fs');
+      const path = require('path');
+      const testDataPath = path.join(__dirname, '../data/test-missions.json');
+      
+      if (fs.existsSync(testDataPath)) {
+        const testData = JSON.parse(fs.readFileSync(testDataPath, 'utf8'));
+        console.log(`✅ ${testData.length} missions chargées depuis le fichier de test`);
+        res.json(testData);
+      } else {
+        console.error('❌ Fichier de données de test non trouvé');
+        res.status(500).json({ error: 'Aucune donnée disponible' });
+      }
+    }
   } catch (error) {
     console.error('Erreur lors de la récupération des missions:', error);
     res.status(500).json({ error: 'Erreur serveur' });

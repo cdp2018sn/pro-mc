@@ -3,9 +3,10 @@ import { Mission } from '../types/mission';
 import { db } from '../database/localStorageDb';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title } from 'chart.js';
 import { format } from 'date-fns';
-import { fr } from 'date-fns/locale';
+import fr from 'date-fns/locale/fr';
 import { StatusChangeAlerts } from './StatusChangeAlerts';
 import { IgnoredMissions } from './IgnoredMissions';
+import { ArrowPathIcon } from '@heroicons/react/24/outline';
  
 
 // Enregistrement des composants Chart.js
@@ -31,13 +32,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ missions }) => {
 
   const loadMissions = async () => {
     // Cette fonction sera appelée pour rafraîchir les missions
-    window.location.reload();
+    try {
+      const allMissions = await db.getAllMissions();
+      setStats(calculateStatistics(allMissions));
+    } catch (error) {
+      console.error('❌ Erreur lors du rafraîchissement:', error);
+    }
   };
 
   const calculateStatistics = (missions: Mission[]) => {
     const enCours = missions.filter(m => m.status === 'EN_COURS').length;
     const terminees = missions.filter(m => m.status === 'TERMINEE').length;
     const enAttente = missions.filter(m => m.status === 'ATTENTE_REPONSE').length;
+    
+
     
     return {
       totalMissions: missions.length,
@@ -51,18 +59,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ missions }) => {
   useEffect(() => {
     // Activer le rendu client pour les graphiques
     setIsClient(true);
-
-    const loadMissions = async () => {
-      try {
-        const allMissions = await db.getAllMissions();
-        setStats(calculateStatistics(allMissions));
-      } catch (error) {
-        console.error('Erreur lors du chargement des missions:', error);
-      }
-    };
-
-    loadMissions();
-  }, []);
+    
+    // Calculer les statistiques avec les missions passées en props
+    setStats(calculateStatistics(missions));
+  }, [missions]);
 
   const renderCharts = () => {
     if (!isClient) return null;
@@ -180,7 +180,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ missions }) => {
   };
 
   const renderStats = () => (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 px-4 sm:px-6">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 px-4 sm:px-6 mb-8">
       <div className="bg-white p-6 rounded-lg shadow-md">
         <h3 className="text-lg font-semibold text-gray-600">Total Missions</h3>
         <p className="text-3xl font-bold text-[#e67e22]">{stats.totalMissions}</p>
@@ -203,18 +203,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ missions }) => {
   const renderRecentMissions = () => {
     const recentMissions = missions
       .filter(mission => {
-        // Afficher les missions en cours et terminées
-        const isRecent = mission.status === 'EN_COURS' || mission.status === 'TERMINEE';
-        return isRecent;
+        // Afficher uniquement les missions en cours
+        return mission.status === 'EN_COURS';
       })
       .sort((a, b) => {
-        // Priorité aux missions en cours
-        if (a.status === 'EN_COURS' && b.status !== 'EN_COURS') return -1;
-        if (a.status !== 'EN_COURS' && b.status === 'EN_COURS') return 1;
-        // Ensuite tri par date de début
+        // Tri par date de début (plus récent en premier)
         return new Date(b.start_date).getTime() - new Date(a.start_date).getTime();
       })
       .slice(0, 5);
+
+
 
     return (
       <div className="bg-white rounded-lg shadow-md mt-6 mx-4 sm:mx-6">
@@ -246,16 +244,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ missions }) => {
                         <td className="px-3 md:px-6 py-2 md:py-4 whitespace-normal md:whitespace-nowrap break-words text-sm font-medium text-gray-900 max-w-[200px] md:max-w-none">
                           {mission.title}
                         </td>
-                        <td className="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap">
-                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                            ${mission.status === 'EN_COURS' ? 'bg-orange-100 text-orange-800' : 
-                              mission.status === 'TERMINEE' ? 'bg-green-100 text-green-800' : 
-                              'bg-yellow-100 text-yellow-800'}`}>
-                            {mission.status === 'EN_COURS' ? 'En cours' : 
-                             mission.status === 'TERMINEE' ? 'Terminée' : 
-                             'En attente'}
-                          </span>
-                        </td>
+                                <td className="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap">
+          <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-orange-100 text-orange-800">
+            En cours
+          </span>
+        </td>
                         <td className="px-3 md:px-6 py-2 md:py-4 whitespace-normal md:whitespace-nowrap break-words text-sm text-gray-500 max-w-[160px] md:max-w-none">
                           {mission.organization}
                         </td>
@@ -265,7 +258,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ missions }) => {
                 ) : (
                   <tr>
                     <td colSpan={4} className="px-3 md:px-6 py-2 md:py-4 text-center text-sm text-gray-500">
-                      Aucune mission récente à afficher
+                      Aucune mission en cours à afficher
                     </td>
                   </tr>
                 )}
@@ -357,9 +350,89 @@ export const Dashboard: React.FC<DashboardProps> = ({ missions }) => {
     );
   };
 
+  const renderCompletedMissions = () => {
+    const completedMissions = missions
+      .filter(mission => {
+        // Afficher uniquement les missions terminées
+        return mission.status === 'TERMINEE';
+      })
+      .sort((a, b) => {
+        // Tri par date de fin (plus récent en premier)
+        return new Date(b.end_date || b.updated_at).getTime() - new Date(a.end_date || a.updated_at).getTime();
+      })
+      .slice(0, 5);
+
+    return (
+      <div className="bg-white rounded-lg shadow-md mt-6 mx-4 sm:mx-6">
+        <div className="p-4 sm:p-6">
+          <h2 className="text-lg font-semibold mb-4">Missions terminées</h2>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date de fin</th>
+                  <th className="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Titre</th>
+                  <th className="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Statut</th>
+                  <th className="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Organisation</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {completedMissions.length > 0 ? (
+                  completedMissions.map((mission) => {
+                    const dateFin = new Date(mission.end_date || mission.updated_at);
+                    const formattedDate = !isNaN(dateFin.getTime()) 
+                      ? format(dateFin, 'dd MMM yyyy', { locale: fr })
+                      : 'Date non disponible';
+
+                    return (
+                      <tr key={mission.id}>
+                        <td className="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm text-gray-500">
+                          {formattedDate}
+                        </td>
+                        <td className="px-3 md:px-6 py-2 md:py-4 whitespace-normal md:whitespace-nowrap break-words text-sm font-medium text-gray-900 max-w-[200px] md:max-w-none">
+                          {mission.title}
+                        </td>
+                        <td className="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap">
+                          <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                            Terminée
+                          </span>
+                        </td>
+                        <td className="px-3 md:px-6 py-2 md:py-4 whitespace-normal md:whitespace-nowrap break-words text-sm text-gray-500 max-w-[160px] md:max-w-none">
+                          {mission.organization}
+                        </td>
+                      </tr>
+                    );
+                  })
+                ) : (
+                  <tr>
+                    <td colSpan={4} className="px-3 md:px-6 py-2 md:py-4 text-center text-sm text-gray-500">
+                      Aucune mission terminée à afficher
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-gray-100">
       <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6">
+        {/* Bouton de rafraîchissement */}
+        <div className="flex justify-end mb-4">
+          <button
+            onClick={loadMissions}
+            className="flex items-center px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600 transition-colors"
+            title="Rafraîchir les données"
+          >
+            <ArrowPathIcon className="h-4 w-4 mr-2" />
+            Rafraîchir les données
+          </button>
+        </div>
+        
         {/* Alertes de changement de statut */}
         <StatusChangeAlerts missions={missions} onRefresh={loadMissions} />
         
@@ -377,6 +450,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ missions }) => {
         
         {/* Missions à venir */}
         {renderUpcomingMissions()}
+        
+        {/* Missions terminées */}
+        {renderCompletedMissions()}
       </div>
     </div>
   );

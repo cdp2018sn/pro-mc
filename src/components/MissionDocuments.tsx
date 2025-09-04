@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Mission, Document, DocumentType, ReponseSuivi } from '../types/mission';
 import { format } from 'date-fns';
-import { fr } from 'date-fns/locale';
+import fr from 'date-fns/locale/fr';
 import { DocumentIcon, DocumentTextIcon, DocumentDuplicateIcon, DocumentCheckIcon, PlusIcon, TrashIcon, EyeIcon } from '@heroicons/react/24/outline';
 import { toast } from 'react-hot-toast';
 import { db } from '../database/localStorageDb';

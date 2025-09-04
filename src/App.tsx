@@ -462,7 +462,11 @@ function AppContent() {
                   </div>
                   <AdvancedSearch 
                     missions={missions}
-                    onSearch={(filters) => console.log('Filtres appliqués:', filters)}
+                    onSearch={(filters) => {
+                      console.log('Filtres appliqués:', filters);
+                      // Rafraîchir les missions après une recherche
+                      refreshMissions();
+                    }}
                   />
                 </div>
               }

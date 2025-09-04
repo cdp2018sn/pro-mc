@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Mission, Finding } from '../types/mission';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { PencilIcon, TrashIcon, CalendarIcon, MapPinIcon, UsersIcon, ChatBubbleLeftIcon, ExclamationTriangleIcon, ChevronDownIcon, ChevronRightIcon, DocumentIcon, BuildingOfficeIcon, ClockIcon, CheckCircleIcon, XCircleIcon, ClockIcon as ClockIconSolid, ChevronUpDownIcon } from '@heroicons/react/24/outline';
+import { PencilIcon, TrashIcon, CalendarIcon, MapPinIcon, UsersIcon, ChatBubbleLeftIcon, ExclamationTriangleIcon, ChevronDownIcon, ChevronRightIcon, DocumentIcon, BuildingOfficeIcon, ClockIcon, CheckCircleIcon, XCircleIcon, ClockIcon as ClockIconSolid, ChevronUpDownIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { MissionDetails } from './MissionDetails';
 import { toast } from 'react-hot-toast';
 import { useLocalMissions } from '../hooks/useLocalMissions';
@@ -455,14 +455,35 @@ export const MissionList: React.FC = () => {
         );
       })}
 
+      {/* Modal pour les détails de mission */}
       {selectedMission && (
-        <MissionDetails
-          mission={selectedMission}
-          onAddRemark={handleAddRemark}
-          onAddSanction={handleAddSanction}
-          onAddFinding={handleAddFinding}
-          onUpdate={refreshMissions}
-        />
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-6xl max-h-[90vh] overflow-hidden">
+            {/* Header de la modal */}
+            <div className="flex justify-between items-center p-6 border-b border-gray-200">
+              <h2 className="text-xl font-semibold text-gray-900">
+                Détails de la mission - {selectedMission.title}
+              </h2>
+              <button
+                onClick={() => setSelectedMission(null)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <XMarkIcon className="h-6 w-6" />
+              </button>
+            </div>
+            
+            {/* Contenu de la modal */}
+            <div className="overflow-y-auto max-h-[calc(90vh-80px)]">
+              <MissionDetails
+                mission={selectedMission}
+                onAddRemark={handleAddRemark}
+                onAddSanction={handleAddSanction}
+                onAddFinding={handleAddFinding}
+                onUpdate={refreshMissions}
+              />
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
