@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { db } from '../database/localStorageDb';
+import { db } from '../database/supabaseDb';
+import { SupabaseService } from '../services/supabaseService';
 import { Mission, Document, Finding, Sanction, Remark } from '../types/mission';
 import { toast } from 'react-hot-toast';
 
@@ -10,6 +11,7 @@ interface DatabaseStats {
   sanctions: number;
   remarks: number;
   lastUpdate: string;
+  connectionStatus: 'supabase' | 'localStorage' | 'error';
 }
 
 export const DatabaseStatus: React.FC = () => {
@@ -23,6 +25,9 @@ export const DatabaseStatus: React.FC = () => {
       setLoading(true);
       setError(null);
 
+      // Tester la connexion Supabase
+      const isSupabaseConnected = await SupabaseService.testConnection();
+      
       // Récupérer toutes les données
       const missions = await db.getAllMissions();
       
@@ -50,7 +55,8 @@ export const DatabaseStatus: React.FC = () => {
         findings: totalFindings,
         sanctions: totalSanctions,
         remarks: totalRemarks,
-        lastUpdate: new Date().toLocaleString('fr-FR')
+        lastUpdate: new Date().toLocaleString('fr-FR'),
+        connectionStatus: isSupabaseConnected ? 'supabase' : 'localStorage'
       });
 
     } catch (err) {
@@ -233,10 +239,22 @@ export const DatabaseStatus: React.FC = () => {
         Dernière mise à jour: {stats?.lastUpdate}
       </div>
 
-      <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded">
+      <div className={`mt-4 p-3 rounded ${
+        stats?.connectionStatus === 'supabase' 
+          ? 'bg-green-50 border border-green-200' 
+          : 'bg-yellow-50 border border-yellow-200'
+      }`}>
         <div className="flex items-center">
-          <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-          <span className="text-sm text-green-800">Base de données opérationnelle</span>
+          <div className={`w-2 h-2 rounded-full mr-2 ${
+            stats?.connectionStatus === 'supabase' ? 'bg-green-500' : 'bg-yellow-500'
+          }`}></div>
+          <span className={`text-sm ${
+            stats?.connectionStatus === 'supabase' ? 'text-green-800' : 'text-yellow-800'
+          }`}>
+            {stats?.connectionStatus === 'supabase' 
+              ? 'Base de données Supabase connectée' 
+              : 'Mode localStorage (Supabase non disponible)'}
+          </span>
         </div>
       </div>
     </div>

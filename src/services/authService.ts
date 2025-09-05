@@ -1,5 +1,5 @@
 import { User, LoginCredentials, CreateUserData, UpdateUserData, ROLE_PERMISSIONS, UserRole, UserWithPassword, Permissions as UserPermissions } from '../types/auth';
-import { PostgresService } from './postgresService';
+import { SupabaseService } from './supabaseService';
 
 // Fonction simple de hachage de mot de passe (pour la démo)
 function hashPassword(password: string): string {
@@ -37,37 +37,37 @@ class AuthService {
   constructor() {
     this.loadUsers();
     this.loadLoginAttempts();
-    // this.syncWithPostgres(); // Synchronisation avec PostgreSQL temporairement désactivée
+    this.syncWithSupabase(); // Synchronisation avec Supabase
   }
 
-  // Synchroniser avec PostgreSQL
-  private async syncWithPostgres(): Promise<void> {
+  // Synchroniser avec Supabase
+  private async syncWithSupabase(): Promise<void> {
     try {
-      console.log('🔄 Synchronisation avec PostgreSQL...');
+      console.log('🔄 Synchronisation avec Supabase...');
       
-      // Récupérer les utilisateurs de PostgreSQL
-      const postgresUsers = await PostgresService.getUsers();
+      // Récupérer les utilisateurs de Supabase
+      const supabaseUsers = await SupabaseService.getUsers();
       
       // Fusionner avec les utilisateurs locaux
       const localUserIds = new Set(this.users.map(u => u.id));
       
-      for (const postgresUser of postgresUsers) {
-        if (!localUserIds.has(postgresUser.id)) {
-          // Ajouter les nouveaux utilisateurs de PostgreSQL
+      for (const supabaseUser of supabaseUsers) {
+        if (!localUserIds.has(supabaseUser.id)) {
+          // Ajouter les nouveaux utilisateurs de Supabase
           const newUser: UserWithPassword = {
-            ...postgresUser,
+            ...supabaseUser,
             password: '', // Le mot de passe n'est pas stocké localement pour la sécurité
-            isActive: postgresUser.is_active || true
+            isActive: supabaseUser.is_active || true
           };
           this.users.push(newUser);
-          console.log(`✅ Utilisateur ajouté depuis PostgreSQL: ${postgresUser.email}`);
+          console.log(`✅ Utilisateur ajouté depuis Supabase: ${supabaseUser.email}`);
         }
       }
       
       this.saveUsers();
-      console.log('✅ Synchronisation avec PostgreSQL terminée');
+      console.log('✅ Synchronisation avec Supabase terminée');
     } catch (error) {
-      console.error('❌ Erreur lors de la synchronisation avec PostgreSQL:', error);
+      console.error('❌ Erreur lors de la synchronisation avec Supabase:', error);
     }
   }
 
@@ -198,11 +198,11 @@ class AuthService {
     user.last_login = new Date().toISOString();
     this.saveUsers();
 
-    // Synchroniser avec PostgreSQL
+    // Synchroniser avec Supabase
     try {
-      await PostgresService.updateUser(user.id, { last_login: user.last_login });
+      await SupabaseService.updateUser(user.id, { last_login: user.last_login });
     } catch (error) {
-      console.error('Erreur lors de la synchronisation avec PostgreSQL:', error);
+      console.error('Erreur lors de la synchronisation avec Supabase:', error);
     }
 
     // Créer la session
@@ -285,25 +285,24 @@ class AuthService {
     this.users.push(newUser);
     this.saveUsers();
 
-    // Sauvegarder dans PostgreSQL
+    // Sauvegarder dans Supabase
     try {
-      console.log('🔄 Sauvegarde de l\'utilisateur dans PostgreSQL...');
-      const postgresUser = await PostgresService.createUser({
+      console.log('🔄 Sauvegarde de l\'utilisateur dans Supabase...');
+      const supabaseUser = await SupabaseService.createUser({
         id: newUser.id,
         email: newUser.email,
         name: newUser.name,
         role: newUser.role,
         permissions: newUser.permissions,
-        is_active: newUser.isActive,
+        isActive: newUser.isActive,
         department: newUser.department,
         phone: newUser.phone,
-        created_at: newUser.created_at,
-        updated_at: new Date().toISOString()
+        password: formData.password
       });
-             console.log('✅ Utilisateur sauvegardé dans PostgreSQL:', postgresUser.email);
+      console.log('✅ Utilisateur sauvegardé dans Supabase:', supabaseUser.email);
     } catch (error) {
-             console.error('❌ Erreur lors de la sauvegarde dans PostgreSQL:', error);
-             // Ne pas échouer complètement si PostgreSQL n'est pas disponible
+      console.error('❌ Erreur lors de la sauvegarde dans Supabase:', error);
+      // Ne pas échouer complètement si Supabase n'est pas disponible
     }
 
     return { ...newUser, password: undefined } as User;
@@ -328,16 +327,15 @@ class AuthService {
     this.users[userIndex] = updatedUser;
     this.saveUsers();
 
-    // Mettre à jour dans PostgreSQL
+    // Mettre à jour dans Supabase
     try {
-      console.log('🔄 Mise à jour de l\'utilisateur dans PostgreSQL...');
-      await PostgresService.updateUser(userId, {
+      console.log('🔄 Mise à jour de l\'utilisateur dans Supabase...');
+      await SupabaseService.updateUser(userId, {
         ...updates,
-        updated_at: new Date().toISOString()
       });
-      console.log('✅ Utilisateur mis à jour dans PostgreSQL:', updatedUser.email);
+      console.log('✅ Utilisateur mis à jour dans Supabase:', updatedUser.email);
     } catch (error) {
-      console.error('❌ Erreur lors de la mise à jour dans PostgreSQL:', error);
+      console.error('❌ Erreur lors de la mise à jour dans Supabase:', error);
     }
 
     return { ...updatedUser, password: undefined } as User;
@@ -359,13 +357,13 @@ class AuthService {
     this.users.splice(userIndex, 1);
     this.saveUsers();
 
-    // Supprimer dans PostgreSQL
+    // Supprimer dans Supabase
     try {
-      console.log('🔄 Suppression de l\'utilisateur dans PostgreSQL...');
-      await PostgresService.deleteUser(userId);
-      console.log('✅ Utilisateur supprimé dans PostgreSQL:', deletedUser.email);
+      console.log('🔄 Suppression de l\'utilisateur dans Supabase...');
+      await SupabaseService.deleteUser(userId);
+      console.log('✅ Utilisateur supprimé dans Supabase:', deletedUser.email);
     } catch (error) {
-      console.error('❌ Erreur lors de la suppression dans PostgreSQL:', error);
+      console.error('❌ Erreur lors de la suppression dans Supabase:', error);
     }
 
     return true;
@@ -373,22 +371,30 @@ class AuthService {
 
   // Changer le mot de passe
   async changePassword(userId: string, currentPassword: string, newPassword: string): Promise<boolean> {
-    const user = this.users.find(u => u.id === userId);
-    if (!user) return false;
 
     // Valider le nouveau mot de passe
     if (newPassword.length < 8) {
       throw new Error('Le nouveau mot de passe doit contenir au moins 8 caractères');
     }
 
-    // Appeler l'API (admin: currentPassword peut être ignoré côté serveur)
+    // Changer le mot de passe via Supabase
     try {
-      await PostgresService.changePassword(userId, user.id === 'admin-1' ? undefined : currentPassword, newPassword);
+      // Pour Supabase, utiliser l'authentification intégrée
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+      
+      if (error) {
+        throw new Error(error.message);
+      }
     } catch (e: any) {
       throw new Error(e?.message || 'Erreur lors du changement de mot de passe');
     }
 
-    // Mettre à jour localement
+    // Mettre à jour localement (sans le mot de passe)
+    const user = this.users.find(u => u.id === userId);
+    if (!user) return false;
+    
     user.password = hashPassword(newPassword);
     this.saveUsers();
     return true;
