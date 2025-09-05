@@ -271,8 +271,17 @@ class AuthService {
       throw new Error('Le mot de passe doit contenir au moins 8 caractères');
     }
 
+    // Générer un UUID valide pour l'utilisateur
+    const generateUUID = () => {
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        const r = Math.random() * 16 | 0;
+        const v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+      });
+    };
+
     const newUser: UserWithPassword = {
-      id: `user-${Date.now()}`,
+      id: generateUUID(),
       email: userData.email,
       name: userData.name,
       role: userData.role,
@@ -288,9 +297,9 @@ class AuthService {
     this.users.push(newUser);
     this.saveUsers();
 
-    // Sauvegarder dans Supabase (temporairement désactivé à cause des politiques RLS)
+    // Sauvegarder dans Supabase
     try {
-      console.log('🔄 Tentative de sauvegarde dans Supabase...');
+      console.log('🔄 Sauvegarde de l\'utilisateur dans Supabase...');
       const supabaseUser = await SupabaseService.createUser({
         id: newUser.id,
         email: newUser.email,
@@ -304,8 +313,8 @@ class AuthService {
       });
       console.log('✅ Utilisateur sauvegardé dans Supabase:', supabaseUser.email);
     } catch (error) {
-      console.warn('⚠️ Supabase temporairement indisponible (politiques RLS):', error.message);
-      console.log('💾 Utilisateur sauvegardé localement uniquement pour le moment');
+      console.error('❌ Erreur lors de la sauvegarde dans Supabase:', error.message);
+      console.log('💾 Utilisateur sauvegardé localement uniquement');
       // Ne pas échouer complètement si Supabase n'est pas disponible
     }
 
