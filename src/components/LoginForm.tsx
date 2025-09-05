@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { RegisterForm } from './RegisterForm';
+import { toast } from 'react-hot-toast';
 
 export const LoginForm: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
   const { login, isLoading, error, clearError } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -17,6 +20,31 @@ export const LoginForm: React.FC = () => {
 
     await login({ email, password });
   };
+
+  const handleRegisterSuccess = () => {
+    setActiveTab('login');
+    toast.success('Compte créé avec succès ! Vous pouvez maintenant vous connecter.');
+  };
+
+  const handleSwitchToRegister = () => {
+    setActiveTab('register');
+    clearError();
+  };
+
+  const handleSwitchToLogin = () => {
+    setActiveTab('login');
+    clearError();
+  };
+
+  // Si on est sur l'onglet d'inscription, afficher le formulaire d'inscription
+  if (activeTab === 'register') {
+    return (
+      <RegisterForm 
+        onSuccess={handleRegisterSuccess}
+        onSwitchToLogin={handleSwitchToLogin}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#fff3e0] flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
@@ -33,6 +61,32 @@ export const LoginForm: React.FC = () => {
           <p className="mt-2 text-center text-sm text-gray-600">
             Accédez à votre espace de gestion des missions
           </p>
+        </div>
+
+        {/* Onglets */}
+        <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
+          <button
+            type="button"
+            onClick={handleSwitchToLogin}
+            className={`flex-1 py-2 px-4 text-sm font-medium rounded-md transition-colors ${
+              activeTab === 'login'
+                ? 'bg-white text-[#e67e22] shadow-sm'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Connexion
+          </button>
+          <button
+            type="button"
+            onClick={handleSwitchToRegister}
+            className={`flex-1 py-2 px-4 text-sm font-medium rounded-md transition-colors ${
+              activeTab === 'register'
+                ? 'bg-white text-[#e67e22] shadow-sm'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Créer un compte
+          </button>
         </div>
         
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
@@ -118,6 +172,16 @@ export const LoginForm: React.FC = () => {
               ) : (
                 'Se connecter'
               )}
+            </button>
+          </div>
+
+          <div className="text-center">
+            <button
+              type="button"
+              onClick={handleSwitchToRegister}
+              className="text-[#e67e22] hover:text-[#d35400] text-sm font-medium"
+            >
+              Pas encore de compte ? Créer un compte
             </button>
           </div>
 
