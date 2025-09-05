@@ -1,10 +1,7 @@
--- Script pour corriger l'UUID de l'admin par défaut
+-- Script SIMPLE pour créer l'admin avec UUID valide
 -- Copiez et collez ceci dans l'éditeur SQL de Supabase
 
--- Supprimer l'ancien admin s'il existe (peu importe l'ID)
-DELETE FROM users WHERE email = 'abdoulaye.niang@cdp.sn';
-
--- Insérer l'admin avec le bon UUID
+-- Créer l'admin directement (ignore les conflits)
 INSERT INTO users (id, email, name, role, is_active, permissions, created_at, updated_at)
 VALUES (
   '550e8400-e29b-41d4-a716-446655440000',
@@ -15,7 +12,7 @@ VALUES (
   '{"canCreateMissions": true, "canEditMissions": true, "canDeleteMissions": true, "canViewAllMissions": true, "canImportMissions": true, "canManageUsers": true, "canViewReports": true, "canEditReports": true, "canManageDocuments": true, "canChangeStatus": true, "canViewDebug": true}',
   NOW(),
   NOW()
-);
+) ON CONFLICT (email) DO NOTHING;
 
--- Vérifier que l'admin a été créé/mis à jour
+-- Vérifier que l'admin existe
 SELECT id, email, name, role, created_at FROM users WHERE email = 'abdoulaye.niang@cdp.sn';
