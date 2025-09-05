@@ -371,7 +371,10 @@ function AppContent() {
   }
 
   return (
-    <Router>
+    <Router future={{
+      v7_startTransition: true,
+      v7_relativeSplatPath: true,
+    }}>
       <div className="min-h-screen bg-[#fff3e0]">
         <Toaster position="top-right" />
         {/* Barre supérieure */}
