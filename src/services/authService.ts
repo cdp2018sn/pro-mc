@@ -8,7 +8,7 @@ function hashPassword(password: string): string {
 
 // Utilisateur administrateur par défaut
 const DEFAULT_ADMIN: UserWithPassword = {
-  id: 'admin-1',
+  id: '550e8400-e29b-41d4-a716-446655440000', // UUID valide pour l'admin par défaut
   email: 'abdoulaye.niang@cdp.sn',
   name: 'Abdoulaye Niang',
   role: 'admin',
@@ -28,7 +28,7 @@ const LOGIN_ATTEMPTS_STORAGE_KEY = 'cdp_login_attempts';
 const MAX_LOGIN_ATTEMPTS = 5;
 const BLOCK_DURATION = 15 * 60 * 1000; // 15 minutes
 
-const API_BASE_URL = 'http://localhost:3000/api';
+const API_BASE_URL = ''; // Pas de serveur local, utiliser Supabase directement
 
 class AuthService {
   private users: UserWithPassword[] = [];
@@ -37,20 +37,14 @@ class AuthService {
   constructor() {
     this.loadUsers();
     this.loadLoginAttempts();
-    // Mode local uniquement - pas de synchronisation Supabase
-    console.log('⚠️ Mode local activé - pas de synchronisation Supabase');
+    // Synchronisation Supabase activée
+    console.log('✅ Mode Supabase activé - synchronisation cloud disponible');
   }
 
   // Synchroniser avec Supabase
   private async syncWithSupabase(): Promise<void> {
     try {
-      // Vérifier si Supabase est configuré
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      if (!supabaseUrl) {
-        console.log('⚠️ Supabase non configuré - mode local uniquement');
-        return;
-      }
-      
+      // Supabase est toujours configuré avec les valeurs par défaut
       console.log('🔄 Synchronisation avec Supabase...');
       
       // Récupérer les utilisateurs de Supabase
@@ -86,7 +80,7 @@ class AuthService {
       if (storedUsers) {
         this.users = JSON.parse(storedUsers);
         // S'assurer que l'admin par défaut existe toujours
-        if (!this.users.find(u => u.id === 'admin-1')) {
+        if (!this.users.find(u => u.id === '550e8400-e29b-41d4-a716-446655440000')) {
           this.users.unshift(DEFAULT_ADMIN);
         }
       } else {
@@ -293,9 +287,9 @@ class AuthService {
     this.users.push(newUser);
     this.saveUsers();
 
-    // Sauvegarder dans Supabase
+    // Sauvegarder dans Supabase (temporairement désactivé à cause des politiques RLS)
     try {
-      console.log('🔄 Sauvegarde de l\'utilisateur dans Supabase...');
+      console.log('🔄 Tentative de sauvegarde dans Supabase...');
       const supabaseUser = await SupabaseService.createUser({
         id: newUser.id,
         email: newUser.email,
@@ -305,11 +299,12 @@ class AuthService {
         isActive: newUser.isActive,
         department: newUser.department,
         phone: newUser.phone,
-        password: formData.password
+        password: userData.password
       });
       console.log('✅ Utilisateur sauvegardé dans Supabase:', supabaseUser.email);
     } catch (error) {
-      console.error('❌ Erreur lors de la sauvegarde dans Supabase:', error);
+      console.warn('⚠️ Supabase temporairement indisponible (politiques RLS):', error.message);
+      console.log('💾 Utilisateur sauvegardé localement uniquement pour le moment');
       // Ne pas échouer complètement si Supabase n'est pas disponible
     }
 

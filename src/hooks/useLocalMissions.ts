@@ -9,7 +9,7 @@ export const useLocalMissions = () => {
 
   const fetchMissions = async () => {
     try {
-      console.log('📋 Récupération des missions depuis localStorage...');
+      console.log('📋 Récupération des missions depuis la base de données...');
       const result = await db.missions.toArray();
       console.log(`✅ ${result.length} missions récupérées`);
       

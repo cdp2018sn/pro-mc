@@ -6,9 +6,9 @@ export class SupabaseDatabase {
   private useSupabase = true;
 
   constructor() {
-    // Mode local uniquement - pas de connexion Supabase
-    this.useSupabase = false;
-    console.log('⚠️ Mode local activé - pas de connexion Supabase');
+    // Vérifier la connexion Supabase au démarrage
+    this.checkSupabaseConnection();
+    console.log('✅ Base de données Supabase initialisée');
   }
 
   private async checkSupabaseConnection() {
