@@ -1,0 +1,3 @@
+[33mdc34bc2[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m resolve: résolution conflit package-lock.json
+[33m0663b0f[m fix: correction erreur Supabase - ajout gestion gracieuse et installation package
+[33m7af7d7f[m Updated package-lock.json

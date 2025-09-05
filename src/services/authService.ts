@@ -37,12 +37,20 @@ class AuthService {
   constructor() {
     this.loadUsers();
     this.loadLoginAttempts();
-    this.syncWithSupabase(); // Synchronisation avec Supabase
+    // Mode local uniquement - pas de synchronisation Supabase
+    console.log('⚠️ Mode local activé - pas de synchronisation Supabase');
   }
 
   // Synchroniser avec Supabase
   private async syncWithSupabase(): Promise<void> {
     try {
+      // Vérifier si Supabase est configuré
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      if (!supabaseUrl) {
+        console.log('⚠️ Supabase non configuré - mode local uniquement');
+        return;
+      }
+      
       console.log('🔄 Synchronisation avec Supabase...');
       
       // Récupérer les utilisateurs de Supabase

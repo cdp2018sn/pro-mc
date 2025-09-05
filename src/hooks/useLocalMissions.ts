@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Mission } from '../types/mission';
-import { db } from '../database/supabaseDb';
+import { db } from '../database/localStorageDb';
 
 export const useLocalMissions = () => {
   const [missions, setMissions] = useState<Mission[]>([]);
@@ -9,8 +9,8 @@ export const useLocalMissions = () => {
 
   const fetchMissions = async () => {
     try {
-      console.log('📋 Récupération des missions depuis Supabase...');
-      const result = await db.getAllMissions();
+      console.log('📋 Récupération des missions depuis localStorage...');
+      const result = await db.missions.toArray();
       console.log(`✅ ${result.length} missions récupérées`);
       
       setMissions(result);
@@ -30,7 +30,7 @@ export const useLocalMissions = () => {
   const refreshMissions = async () => {
     try {
       setLoading(true);
-      const allMissions = await db.getAllMissions();
+      const allMissions = await db.missions.toArray();
       console.log('Missions après rafraîchissement:', allMissions);
       setMissions(allMissions);
       setError(null);
@@ -46,7 +46,7 @@ export const useLocalMissions = () => {
     try {
       setLoading(true);
       console.log('Ajout d\'une nouvelle mission:', missionData);
-      const newMission = await db.addMission(missionData);
+      const newMission = await db.missions.add(missionData);
       console.log('Mission ajoutée avec succès:', newMission);
       await refreshMissions();
       return newMission;
@@ -62,10 +62,10 @@ export const useLocalMissions = () => {
   const updateMissionStatuses = async () => {
     try {
       setLoading(true);
-      const result = await db.updateMissionStatuses();
-      console.log('Mise à jour des statuts:', result);
+      // Pour localStorage, on peut simuler la mise à jour des statuts
+      console.log('Mise à jour des statuts (mode local)');
       await refreshMissions();
-      return result;
+      return { updated: 0 };
     } catch (err) {
       console.error('Erreur lors de la mise à jour des statuts:', err);
       setError('Erreur lors de la mise à jour des statuts');
@@ -77,8 +77,9 @@ export const useLocalMissions = () => {
 
   const checkUpcomingStatusChanges = async () => {
     try {
-      const result = await db.checkUpcomingStatusChanges();
-      return result;
+      // Pour localStorage, on peut simuler la vérification
+      console.log('Vérification des changements de statut (mode local)');
+      return { startingSoon: [], endingSoon: [] };
     } catch (err) {
       console.error('Erreur lors de la vérification des changements de statut:', err);
       return { startingSoon: [], endingSoon: [] };
