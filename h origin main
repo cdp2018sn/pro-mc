@@ -1,0 +1,5 @@
+[33m47dd421[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m Add vercel.json configuration for SPA routing
+[33m2353917[m[33m ([m[1;31morigin/main[m[33m)[m Update mission components and services, remove old migrations
+[33m04aa07b[m feat: traduction des permissions en français dans la gestion des utilisateurs
+[33m6bb852d[m fix: nettoyage du code - suppression des fonctions et imports inutilisés dans App.tsx
+[33m319af3d[m feat: ajout des guides de test pour la protection des routes administrateur
