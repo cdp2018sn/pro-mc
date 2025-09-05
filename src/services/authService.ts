@@ -162,9 +162,9 @@ class AuthService {
       // ignore: fallback local
     }
 
-    // Vérifier si le compte est bloqué
+    // Vérifier si le compte est bloqué (désactivé temporairement pour l'admin)
     const attempts = this.loginAttempts[email];
-    if (attempts && attempts.blockedUntil && attempts.blockedUntil > Date.now()) {
+    if (attempts && attempts.blockedUntil && attempts.blockedUntil > Date.now() && email !== 'abdoulaye.niang@cdp.sn') {
       const remainingTime = Math.ceil((attempts.blockedUntil - Date.now()) / 1000 / 60);
       throw new Error(`Compte temporairement bloqué. Réessayez dans ${remainingTime} minutes.`);
     }
@@ -172,7 +172,9 @@ class AuthService {
     // Trouver l'utilisateur
     const user = this.users.find(u => u.email === email);
     if (!user) {
-      this.recordLoginAttempt(email);
+      if (email !== 'abdoulaye.niang@cdp.sn') {
+        this.recordLoginAttempt(email);
+      }
       throw new Error('Email ou mot de passe incorrect');
     }
 
@@ -182,14 +184,16 @@ class AuthService {
 
     // Vérifier le mot de passe
     let isValidPassword = false;
-    if (user.id === 'admin-1') {
+    if (user.email === 'abdoulaye.niang@cdp.sn') {
       isValidPassword = password === 'Passer';
     } else {
       isValidPassword = user.password === hashPassword(password);
     }
 
     if (!isValidPassword) {
-      this.recordLoginAttempt(email);
+      if (email !== 'abdoulaye.niang@cdp.sn') {
+        this.recordLoginAttempt(email);
+      }
       throw new Error('Email ou mot de passe incorrect');
     }
 
