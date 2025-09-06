@@ -1,152 +1,245 @@
 import { supabase } from '../config/supabase';
-import { Mission, Document, Finding, Sanction, Remark, ReponseSuivi } from '../types/mission';
+import { Mission, Document, Finding, Sanction, Remark } from '../types/mission';
 import { User, CreateUserData, UpdateUserData } from '../types/auth';
 
 export class SupabaseService {
+  // ==================== TEST DE CONNEXION ====================
+  
+  static async testConnection(): Promise<boolean> {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('count')
+        .limit(1);
+      
+      if (error) {
+        console.error('❌ Erreur de connexion Supabase:', error);
+        return false;
+      }
+      
+      console.log('✅ Connexion Supabase réussie');
+      return true;
+    } catch (error) {
+      console.error('❌ Erreur de connexion Supabase:', error);
+      return false;
+    }
+  }
+
   // ==================== UTILISATEURS ====================
   
   static async getUsers(): Promise<User[]> {
-    const { data, error } = await supabase
-      .from('users')
-      .select('*')
-      .order('created_at', { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-    if (error) {
-      console.error('Erreur lors de la récupération des utilisateurs:', error);
-      throw new Error(`Erreur lors de la récupération des utilisateurs: ${error.message}`);
+      if (error) {
+        console.error('Erreur lors de la récupération des utilisateurs:', error);
+        throw new Error(`Erreur lors de la récupération des utilisateurs: ${error.message}`);
+      }
+
+      return (data || []).map(user => ({
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        permissions: user.permissions,
+        isActive: user.is_active,
+        department: user.department,
+        phone: user.phone,
+        created_at: user.created_at,
+        last_login: user.last_login
+      }));
+    } catch (error) {
+      console.error('Erreur dans getUsers:', error);
+      throw error;
     }
-
-    return data || [];
   }
 
   static async getUserByEmail(email: string): Promise<User | null> {
-    const { data, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('email', email)
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('email', email)
+        .single();
 
-    if (error) {
-      if (error.code === 'PGRST116') return null; // Pas trouvé
-      throw new Error(`Erreur lors de la récupération de l'utilisateur: ${error.message}`);
+      if (error) {
+        if (error.code === 'PGRST116') return null; // Pas trouvé
+        throw new Error(`Erreur lors de la récupération de l'utilisateur: ${error.message}`);
+      }
+
+      return {
+        id: data.id,
+        email: data.email,
+        name: data.name,
+        role: data.role,
+        permissions: data.permissions,
+        isActive: data.is_active,
+        department: data.department,
+        phone: data.phone,
+        created_at: data.created_at,
+        last_login: data.last_login
+      };
+    } catch (error) {
+      console.error('Erreur dans getUserByEmail:', error);
+      throw error;
     }
-
-    return data;
   }
 
-  static async createUser(userData: Omit<User, 'id' | 'created_at' | 'updated_at'> & { password?: string }): Promise<User> {
-    // Utiliser l'API REST directement pour contourner les politiques RLS
-    const response = await fetch(`${supabaseUrl}/rest/v1/users`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': supabaseAnonKey,
-        'Authorization': `Bearer ${supabaseAnonKey}`,
-        'Prefer': 'return=representation'
-      },
-      body: JSON.stringify({
+  static async createUser(userData: CreateUserData & { id?: string }): Promise<User> {
+    try {
+      const userToCreate = {
+        id: userData.id || crypto.randomUUID(),
         email: userData.email,
         name: userData.name,
         role: userData.role,
-        department: userData.department,
-        phone: userData.phone,
-        is_active: userData.isActive,
-        permissions: userData.permissions,
-        password_hash: userData.password ? await this.hashPassword(userData.password) : null
-      })
-    });
+        department: userData.department || '',
+        phone: userData.phone || '',
+        is_active: true,
+        permissions: userData.permissions || {},
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(`Erreur lors de la création de l'utilisateur: ${errorData.message || response.statusText}`);
+      const { data, error } = await supabase
+        .from('users')
+        .insert(userToCreate)
+        .select()
+        .single();
+
+      if (error) {
+        throw new Error(`Erreur lors de la création de l'utilisateur: ${error.message}`);
+      }
+
+      return {
+        id: data.id,
+        email: data.email,
+        name: data.name,
+        role: data.role,
+        permissions: data.permissions,
+        isActive: data.is_active,
+        department: data.department,
+        phone: data.phone,
+        created_at: data.created_at,
+        last_login: data.last_login
+      };
+    } catch (error) {
+      console.error('Erreur dans createUser:', error);
+      throw error;
     }
-
-    const data = await response.json();
-    return data[0]; // L'API REST retourne un tableau
   }
 
   static async updateUser(id: string, updates: UpdateUserData): Promise<User> {
-    // Utiliser l'API REST directement pour contourner les politiques RLS
-    const response = await fetch(`${supabaseUrl}/rest/v1/users?id=eq.${id}`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': supabaseAnonKey,
-        'Authorization': `Bearer ${supabaseAnonKey}`,
-        'Prefer': 'return=representation'
-      },
-      body: JSON.stringify(updates)
-    });
+    try {
+      const updateData = {
+        ...updates,
+        is_active: updates.isActive,
+        updated_at: new Date().toISOString()
+      };
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(`Erreur lors de la mise à jour de l'utilisateur: ${errorData.message || response.statusText}`);
+      // Supprimer isActive car on utilise is_active
+      delete (updateData as any).isActive;
+
+      const { data, error } = await supabase
+        .from('users')
+        .update(updateData)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) {
+        throw new Error(`Erreur lors de la mise à jour de l'utilisateur: ${error.message}`);
+      }
+
+      return {
+        id: data.id,
+        email: data.email,
+        name: data.name,
+        role: data.role,
+        permissions: data.permissions,
+        isActive: data.is_active,
+        department: data.department,
+        phone: data.phone,
+        created_at: data.created_at,
+        last_login: data.last_login
+      };
+    } catch (error) {
+      console.error('Erreur dans updateUser:', error);
+      throw error;
     }
-
-    const data = await response.json();
-    return data[0]; // L'API REST retourne un tableau
   }
 
   static async deleteUser(id: string): Promise<void> {
-    const { error } = await supabase
-      .from('users')
-      .delete()
-      .eq('id', id);
+    try {
+      const { error } = await supabase
+        .from('users')
+        .delete()
+        .eq('id', id);
 
-    if (error) {
-      throw new Error(`Erreur lors de la suppression de l'utilisateur: ${error.message}`);
+      if (error) {
+        throw new Error(`Erreur lors de la suppression de l'utilisateur: ${error.message}`);
+      }
+    } catch (error) {
+      console.error('Erreur dans deleteUser:', error);
+      throw error;
     }
   }
 
   // ==================== MISSIONS ====================
   
   static async getMissions(): Promise<Mission[]> {
-    const { data: missions, error } = await supabase
-      .from('missions')
-      .select(`
-        *,
-        documents(*),
-        findings(*),
-        sanctions(*),
-        remarks(*),
-        reponses_suivi(*)
-      `)
-      .order('created_at', { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from('missions')
+        .select(`
+          *,
+          documents(*),
+          findings(*),
+          sanctions(*),
+          remarks(*)
+        `)
+        .order('created_at', { ascending: false });
 
-    if (error) {
-      console.error('Erreur lors de la récupération des missions:', error);
-      throw new Error(`Erreur lors de la récupération des missions: ${error.message}`);
+      if (error) {
+        console.error('Erreur lors de la récupération des missions:', error);
+        throw new Error(`Erreur lors de la récupération des missions: ${error.message}`);
+      }
+
+      return (data || []).map(mission => ({
+        id: mission.id,
+        reference: mission.reference,
+        title: mission.title,
+        description: mission.description,
+        type_mission: mission.type_mission,
+        organization: mission.organization,
+        address: mission.address,
+        start_date: mission.start_date,
+        end_date: mission.end_date,
+        status: mission.status,
+        motif_controle: mission.motif_controle,
+        decision_numero: mission.decision_numero,
+        date_decision: mission.date_decision,
+        team_members: mission.team_members || [],
+        objectives: mission.objectives || [],
+        findings: mission.findings || [],
+        remarks: mission.remarks || [],
+        sanctions: mission.sanctions || [],
+        documents: mission.documents || [],
+        created_at: mission.created_at,
+        updated_at: mission.updated_at,
+        ignoreAutoStatusChange: mission.ignore_auto_status_change
+      }));
+    } catch (error) {
+      console.error('Erreur dans getMissions:', error);
+      throw error;
     }
-
-    return missions || [];
-  }
-
-  static async getMissionById(id: string): Promise<Mission | null> {
-    const { data, error } = await supabase
-      .from('missions')
-      .select(`
-        *,
-        documents(*),
-        findings(*),
-        sanctions(*),
-        remarks(*),
-        reponses_suivi(*)
-      `)
-      .eq('id', id)
-      .single();
-
-    if (error) {
-      if (error.code === 'PGRST116') return null;
-      throw new Error(`Erreur lors de la récupération de la mission: ${error.message}`);
-    }
-
-    return data;
   }
 
   static async createMission(missionData: Omit<Mission, 'id' | 'created_at' | 'updated_at'>): Promise<Mission> {
-    const { data, error } = await supabase
-      .from('missions')
-      .insert({
+    try {
+      const missionToCreate = {
         reference: missionData.reference,
         title: missionData.title,
         description: missionData.description,
@@ -159,362 +252,431 @@ export class SupabaseService {
         motif_controle: missionData.motif_controle,
         decision_numero: missionData.decision_numero,
         date_decision: missionData.date_decision,
-        team_members: missionData.team_members,
-        objectives: missionData.objectives
-      })
-      .select()
-      .single();
+        team_members: missionData.team_members || [],
+        objectives: missionData.objectives || [],
+        ignore_auto_status_change: missionData.ignoreAutoStatusChange || false,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
 
-    if (error) {
-      throw new Error(`Erreur lors de la création de la mission: ${error.message}`);
+      const { data, error } = await supabase
+        .from('missions')
+        .insert(missionToCreate)
+        .select()
+        .single();
+
+      if (error) {
+        throw new Error(`Erreur lors de la création de la mission: ${error.message}`);
+      }
+
+      return {
+        id: data.id,
+        reference: data.reference,
+        title: data.title,
+        description: data.description,
+        type_mission: data.type_mission,
+        organization: data.organization,
+        address: data.address,
+        start_date: data.start_date,
+        end_date: data.end_date,
+        status: data.status,
+        motif_controle: data.motif_controle,
+        decision_numero: data.decision_numero,
+        date_decision: data.date_decision,
+        team_members: data.team_members || [],
+        objectives: data.objectives || [],
+        findings: [],
+        remarks: [],
+        sanctions: [],
+        documents: [],
+        created_at: data.created_at,
+        updated_at: data.updated_at,
+        ignoreAutoStatusChange: data.ignore_auto_status_change
+      };
+    } catch (error) {
+      console.error('Erreur dans createMission:', error);
+      throw error;
     }
-
-    return data;
   }
 
   static async updateMission(id: string, updates: Partial<Mission>): Promise<Mission> {
-    const { data, error } = await supabase
-      .from('missions')
-      .update(updates)
-      .eq('id', id)
-      .select()
-      .single();
+    try {
+      const updateData = {
+        ...updates,
+        ignore_auto_status_change: updates.ignoreAutoStatusChange,
+        updated_at: new Date().toISOString()
+      };
 
-    if (error) {
-      throw new Error(`Erreur lors de la mise à jour de la mission: ${error.message}`);
+      // Supprimer les champs qui ne correspondent pas à la DB
+      delete (updateData as any).ignoreAutoStatusChange;
+      delete (updateData as any).findings;
+      delete (updateData as any).remarks;
+      delete (updateData as any).sanctions;
+      delete (updateData as any).documents;
+
+      const { data, error } = await supabase
+        .from('missions')
+        .update(updateData)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) {
+        throw new Error(`Erreur lors de la mise à jour de la mission: ${error.message}`);
+      }
+
+      // Récupérer la mission complète avec les relations
+      return await this.getMissionById(id) || data;
+    } catch (error) {
+      console.error('Erreur dans updateMission:', error);
+      throw error;
     }
+  }
 
-    return data;
+  static async getMissionById(id: string): Promise<Mission | null> {
+    try {
+      const { data, error } = await supabase
+        .from('missions')
+        .select(`
+          *,
+          documents(*),
+          findings(*),
+          sanctions(*),
+          remarks(*)
+        `)
+        .eq('id', id)
+        .single();
+
+      if (error) {
+        if (error.code === 'PGRST116') return null;
+        throw new Error(`Erreur lors de la récupération de la mission: ${error.message}`);
+      }
+
+      return {
+        id: data.id,
+        reference: data.reference,
+        title: data.title,
+        description: data.description,
+        type_mission: data.type_mission,
+        organization: data.organization,
+        address: data.address,
+        start_date: data.start_date,
+        end_date: data.end_date,
+        status: data.status,
+        motif_controle: data.motif_controle,
+        decision_numero: data.decision_numero,
+        date_decision: data.date_decision,
+        team_members: data.team_members || [],
+        objectives: data.objectives || [],
+        findings: data.findings || [],
+        remarks: data.remarks || [],
+        sanctions: data.sanctions || [],
+        documents: data.documents || [],
+        created_at: data.created_at,
+        updated_at: data.updated_at,
+        ignoreAutoStatusChange: data.ignore_auto_status_change
+      };
+    } catch (error) {
+      console.error('Erreur dans getMissionById:', error);
+      throw error;
+    }
   }
 
   static async deleteMission(id: string): Promise<void> {
-    const { error } = await supabase
-      .from('missions')
-      .delete()
-      .eq('id', id);
+    try {
+      const { error } = await supabase
+        .from('missions')
+        .delete()
+        .eq('id', id);
 
-    if (error) {
-      throw new Error(`Erreur lors de la suppression de la mission: ${error.message}`);
+      if (error) {
+        throw new Error(`Erreur lors de la suppression de la mission: ${error.message}`);
+      }
+    } catch (error) {
+      console.error('Erreur dans deleteMission:', error);
+      throw error;
     }
   }
 
   // ==================== DOCUMENTS ====================
   
   static async getDocuments(missionId: string): Promise<Document[]> {
-    const { data, error } = await supabase
-      .from('documents')
-      .select('*')
-      .eq('mission_id', missionId)
-      .order('created_at', { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from('documents')
+        .select('*')
+        .eq('mission_id', missionId)
+        .order('created_at', { ascending: false });
 
-    if (error) {
-      throw new Error(`Erreur lors de la récupération des documents: ${error.message}`);
+      if (error) {
+        throw new Error(`Erreur lors de la récupération des documents: ${error.message}`);
+      }
+
+      return data || [];
+    } catch (error) {
+      console.error('Erreur dans getDocuments:', error);
+      throw error;
     }
-
-    return data || [];
   }
 
   static async createDocument(documentData: Omit<Document, 'id' | 'created_at'>): Promise<Document> {
-    const { data, error } = await supabase
-      .from('documents')
-      .insert(documentData)
-      .select()
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from('documents')
+        .insert({
+          ...documentData,
+          created_at: new Date().toISOString()
+        })
+        .select()
+        .single();
 
-    if (error) {
-      throw new Error(`Erreur lors de la création du document: ${error.message}`);
+      if (error) {
+        throw new Error(`Erreur lors de la création du document: ${error.message}`);
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Erreur dans createDocument:', error);
+      throw error;
     }
-
-    return data;
   }
 
   static async deleteDocument(id: string): Promise<void> {
-    const { error } = await supabase
-      .from('documents')
-      .delete()
-      .eq('id', id);
+    try {
+      const { error } = await supabase
+        .from('documents')
+        .delete()
+        .eq('id', id);
 
-    if (error) {
-      throw new Error(`Erreur lors de la suppression du document: ${error.message}`);
+      if (error) {
+        throw new Error(`Erreur lors de la suppression du document: ${error.message}`);
+      }
+    } catch (error) {
+      console.error('Erreur dans deleteDocument:', error);
+      throw error;
     }
   }
 
   // ==================== CONSTATATIONS ====================
   
   static async getFindings(missionId: string): Promise<Finding[]> {
-    const { data, error } = await supabase
-      .from('findings')
-      .select('*')
-      .eq('mission_id', missionId)
-      .order('created_at', { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from('findings')
+        .select('*')
+        .eq('mission_id', missionId)
+        .order('created_at', { ascending: false });
 
-    if (error) {
-      throw new Error(`Erreur lors de la récupération des constatations: ${error.message}`);
+      if (error) {
+        throw new Error(`Erreur lors de la récupération des constatations: ${error.message}`);
+      }
+
+      return data || [];
+    } catch (error) {
+      console.error('Erreur dans getFindings:', error);
+      throw error;
     }
-
-    return data || [];
   }
 
   static async createFinding(findingData: Omit<Finding, 'id' | 'created_at' | 'updated_at'>): Promise<Finding> {
-    const { data, error } = await supabase
-      .from('findings')
-      .insert(findingData)
-      .select()
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from('findings')
+        .insert({
+          ...findingData,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .select()
+        .single();
 
-    if (error) {
-      throw new Error(`Erreur lors de la création de la constatation: ${error.message}`);
-    }
+      if (error) {
+        throw new Error(`Erreur lors de la création de la constatation: ${error.message}`);
+      }
 
-    return data;
-  }
-
-  static async updateFinding(id: string, updates: Partial<Finding>): Promise<Finding> {
-    const { data, error } = await supabase
-      .from('findings')
-      .update(updates)
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (error) {
-      throw new Error(`Erreur lors de la mise à jour de la constatation: ${error.message}`);
-    }
-
-    return data;
-  }
-
-  static async deleteFinding(id: string): Promise<void> {
-    const { error } = await supabase
-      .from('findings')
-      .delete()
-      .eq('id', id);
-
-    if (error) {
-      throw new Error(`Erreur lors de la suppression de la constatation: ${error.message}`);
+      return data;
+    } catch (error) {
+      console.error('Erreur dans createFinding:', error);
+      throw error;
     }
   }
 
   // ==================== SANCTIONS ====================
   
   static async getSanctions(missionId: string): Promise<Sanction[]> {
-    const { data, error } = await supabase
-      .from('sanctions')
-      .select('*')
-      .eq('mission_id', missionId)
-      .order('created_at', { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from('sanctions')
+        .select('*')
+        .eq('mission_id', missionId)
+        .order('created_at', { ascending: false });
 
-    if (error) {
-      throw new Error(`Erreur lors de la récupération des sanctions: ${error.message}`);
+      if (error) {
+        throw new Error(`Erreur lors de la récupération des sanctions: ${error.message}`);
+      }
+
+      return data || [];
+    } catch (error) {
+      console.error('Erreur dans getSanctions:', error);
+      throw error;
     }
-
-    return data || [];
   }
 
   static async createSanction(sanctionData: Omit<Sanction, 'id' | 'created_at' | 'updated_at'>): Promise<Sanction> {
-    const { data, error } = await supabase
-      .from('sanctions')
-      .insert(sanctionData)
-      .select()
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from('sanctions')
+        .insert({
+          ...sanctionData,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .select()
+        .single();
 
-    if (error) {
-      throw new Error(`Erreur lors de la création de la sanction: ${error.message}`);
+      if (error) {
+        throw new Error(`Erreur lors de la création de la sanction: ${error.message}`);
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Erreur dans createSanction:', error);
+      throw error;
     }
-
-    return data;
   }
 
   static async updateSanction(id: string, updates: Partial<Sanction>): Promise<Sanction> {
-    const { data, error } = await supabase
-      .from('sanctions')
-      .update(updates)
-      .eq('id', id)
-      .select()
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from('sanctions')
+        .update({
+          ...updates,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id)
+        .select()
+        .single();
 
-    if (error) {
-      throw new Error(`Erreur lors de la mise à jour de la sanction: ${error.message}`);
+      if (error) {
+        throw new Error(`Erreur lors de la mise à jour de la sanction: ${error.message}`);
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Erreur dans updateSanction:', error);
+      throw error;
     }
-
-    return data;
   }
 
   static async deleteSanction(id: string): Promise<void> {
-    const { error } = await supabase
-      .from('sanctions')
-      .delete()
-      .eq('id', id);
+    try {
+      const { error } = await supabase
+        .from('sanctions')
+        .delete()
+        .eq('id', id);
 
-    if (error) {
-      throw new Error(`Erreur lors de la suppression de la sanction: ${error.message}`);
+      if (error) {
+        throw new Error(`Erreur lors de la suppression de la sanction: ${error.message}`);
+      }
+    } catch (error) {
+      console.error('Erreur dans deleteSanction:', error);
+      throw error;
     }
   }
 
   // ==================== REMARQUES ====================
   
   static async getRemarks(missionId: string): Promise<Remark[]> {
-    const { data, error } = await supabase
-      .from('remarks')
-      .select('*')
-      .eq('mission_id', missionId)
-      .order('created_at', { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from('remarks')
+        .select('*')
+        .eq('mission_id', missionId)
+        .order('created_at', { ascending: false });
 
-    if (error) {
-      throw new Error(`Erreur lors de la récupération des remarques: ${error.message}`);
+      if (error) {
+        throw new Error(`Erreur lors de la récupération des remarques: ${error.message}`);
+      }
+
+      return data || [];
+    } catch (error) {
+      console.error('Erreur dans getRemarks:', error);
+      throw error;
     }
-
-    return data || [];
   }
 
   static async createRemark(remarkData: Omit<Remark, 'id' | 'created_at' | 'updated_at'>): Promise<Remark> {
-    const { data, error } = await supabase
-      .from('remarks')
-      .insert(remarkData)
-      .select()
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from('remarks')
+        .insert({
+          ...remarkData,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .select()
+        .single();
 
-    if (error) {
-      throw new Error(`Erreur lors de la création de la remarque: ${error.message}`);
+      if (error) {
+        throw new Error(`Erreur lors de la création de la remarque: ${error.message}`);
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Erreur dans createRemark:', error);
+      throw error;
     }
-
-    return data;
-  }
-
-  static async deleteRemark(id: string): Promise<void> {
-    const { error } = await supabase
-      .from('remarks')
-      .delete()
-      .eq('id', id);
-
-    if (error) {
-      throw new Error(`Erreur lors de la suppression de la remarque: ${error.message}`);
-    }
-  }
-
-  // ==================== RÉPONSES DE SUIVI ====================
-  
-  static async getReponsesSuivi(missionId: string): Promise<ReponseSuivi[]> {
-    const { data, error } = await supabase
-      .from('reponses_suivi')
-      .select('*')
-      .eq('mission_id', missionId)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      throw new Error(`Erreur lors de la récupération des réponses: ${error.message}`);
-    }
-
-    return data || [];
-  }
-
-  static async createReponseSuivi(reponseData: Omit<ReponseSuivi, 'id' | 'created_at' | 'updated_at'>): Promise<ReponseSuivi> {
-    const { data, error } = await supabase
-      .from('reponses_suivi')
-      .insert(reponseData)
-      .select()
-      .single();
-
-    if (error) {
-      throw new Error(`Erreur lors de la création de la réponse: ${error.message}`);
-    }
-
-    return data;
-  }
-
-  // ==================== STATISTIQUES ====================
-  
-  static async getStatistics() {
-    const { data: missions, error } = await supabase
-      .from('missions')
-      .select('status');
-
-    if (error) {
-      throw new Error(`Erreur lors de la récupération des statistiques: ${error.message}`);
-    }
-
-    const stats = {
-      total: missions?.length || 0,
-      planifiee: missions?.filter(m => m.status === 'PLANIFIEE').length || 0,
-      en_cours: missions?.filter(m => m.status === 'EN_COURS').length || 0,
-      terminee: missions?.filter(m => m.status === 'TERMINEE').length || 0,
-      attente_reponse: missions?.filter(m => m.status === 'ATTENTE_REPONSE').length || 0,
-      annulee: missions?.filter(m => m.status === 'ANNULEE').length || 0
-    };
-
-    return stats;
   }
 
   // ==================== MISE À JOUR DES STATUTS ====================
   
   static async updateMissionStatuses(): Promise<{ updated: number; started: number; completed: number }> {
-    const now = new Date().toISOString().split('T')[0]; // Format YYYY-MM-DD
-    
-    // Missions planifiées qui doivent passer en cours
-    const { data: startedMissions, error: startError } = await supabase
-      .from('missions')
-      .update({ status: 'EN_COURS' })
-      .eq('status', 'PLANIFIEE')
-      .lte('start_date', now)
-      .eq('ignore_auto_status_change', false)
-      .select('id');
-
-    if (startError) {
-      console.error('Erreur lors de la mise à jour des missions planifiées:', startError);
-    }
-
-    // Missions en cours qui doivent se terminer
-    const { data: completedMissions, error: completeError } = await supabase
-      .from('missions')
-      .update({ status: 'TERMINEE' })
-      .eq('status', 'EN_COURS')
-      .lte('end_date', now)
-      .eq('ignore_auto_status_change', false)
-      .select('id');
-
-    if (completeError) {
-      console.error('Erreur lors de la mise à jour des missions en cours:', completeError);
-    }
-
-    const started = startedMissions?.length || 0;
-    const completed = completedMissions?.length || 0;
-
-    return {
-      updated: started + completed,
-      started,
-      completed
-    };
-  }
-
-  // ==================== UTILITAIRES ====================
-  
-  private static async hashPassword(password: string): Promise<string> {
-    // Utiliser bcrypt côté client (ou envoyer au serveur pour hachage)
-    // Pour la simplicité, on utilise un hash simple ici
-    const encoder = new TextEncoder();
-    const data = encoder.encode(password + 'cdp-salt');
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-  }
-
-  static async testConnection(): Promise<boolean> {
     try {
-      const { data, error } = await supabase
-        .from('users')
-        .select('count')
-        .limit(1);
+      const now = new Date().toISOString().split('T')[0]; // Format YYYY-MM-DD
+      
+      // Missions planifiées qui doivent passer en cours
+      const { data: startedMissions, error: startError } = await supabase
+        .from('missions')
+        .update({ 
+          status: 'EN_COURS',
+          updated_at: new Date().toISOString()
+        })
+        .eq('status', 'PLANIFIEE')
+        .lte('start_date', now)
+        .neq('ignore_auto_status_change', true)
+        .select('id');
 
-      if (error) {
-        console.error('Erreur de connexion Supabase:', error);
-        return false;
+      if (startError) {
+        console.error('Erreur lors de la mise à jour des missions planifiées:', startError);
       }
 
-      console.log('✅ Connexion Supabase réussie');
-      return true;
+      // Missions en cours qui doivent se terminer
+      const { data: completedMissions, error: completeError } = await supabase
+        .from('missions')
+        .update({ 
+          status: 'TERMINEE',
+          updated_at: new Date().toISOString()
+        })
+        .eq('status', 'EN_COURS')
+        .lte('end_date', now)
+        .neq('ignore_auto_status_change', true)
+        .select('id');
+
+      if (completeError) {
+        console.error('Erreur lors de la mise à jour des missions en cours:', completeError);
+      }
+
+      const started = startedMissions?.length || 0;
+      const completed = completedMissions?.length || 0;
+
+      return {
+        updated: started + completed,
+        started,
+        completed
+      };
     } catch (error) {
-      console.error('❌ Erreur de connexion Supabase:', error);
-      return false;
+      console.error('Erreur dans updateMissionStatuses:', error);
+      throw error;
     }
   }
 }
