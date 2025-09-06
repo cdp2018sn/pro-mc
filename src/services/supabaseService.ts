@@ -1,6 +1,6 @@
 import { supabase } from '../config/supabase';
 import { Mission, Document, Finding, Sanction, Remark } from '../types/mission';
-import { mockService } from './mockService';
+import { MockService } from './mockService';
 import { User, CreateUserData, UpdateUserData } from '../types/auth';
 
 export class SupabaseService {
@@ -58,7 +58,7 @@ export class SupabaseService {
     try {
       if (error.code === 'PGRST002') {
         console.warn('Schema cache error during authentication, falling back to mock');
-        return mockService.authenticateUser(email, password);
+        return MockService.authenticateUser(email, password);
       }
       const { data, error } = await supabase
         .from('users')
