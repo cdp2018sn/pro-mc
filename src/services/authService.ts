@@ -42,24 +42,35 @@ class AuthService {
 
   private async initializeSupabase() {
     try {
+      console.log('🔧 Initialisation AuthService avec Supabase...');
       this.isSupabaseConnected = await SupabaseService.testConnection();
       
       if (this.isSupabaseConnected) {
-        console.log('✅ Supabase connecté - synchronisation activée');
+        console.log('✅ AuthService: Supabase connecté - synchronisation activée');
         await this.syncWithSupabase();
         await this.ensureAdminExists();
       } else {
-        console.log('⚠️ Supabase non disponible - mode local uniquement');
+        console.log('⚠️ AuthService: Supabase non disponible - mode local uniquement');
+        this.ensureLocalAdmin();
       }
     } catch (error) {
-      console.log('⚠️ Erreur initialisation Supabase, mode local:', error);
+      console.log('⚠️ AuthService: Erreur initialisation Supabase, mode local:', error);
       this.isSupabaseConnected = false;
+      this.ensureLocalAdmin();
     }
   }
 
   private async ensureInitialized() {
     if (this.initPromise) {
       await this.initPromise;
+    }
+  }
+
+  private ensureLocalAdmin() {
+    if (!this.users.find(u => u.id === DEFAULT_ADMIN.id)) {
+      this.users.unshift(DEFAULT_ADMIN);
+      this.saveUsers();
+      console.log('✅ Admin local créé');
     }
   }
 
@@ -82,6 +93,8 @@ class AuthService {
             password: 'Passer'
           });
           console.log('✅ Admin créé dans Supabase');
+        } else {
+          console.log('✅ Admin existe déjà dans Supabase');
         }
       }
     } catch (error) {
@@ -93,7 +106,7 @@ class AuthService {
     try {
       if (!this.isSupabaseConnected) return;
       
-      console.log('🔄 Synchronisation avec Supabase...');
+      console.log('🔄 Synchronisation utilisateurs avec Supabase...');
       
       const supabaseUsers = await SupabaseService.getUsers();
       const localUserIds = new Set(this.users.map(u => u.id));
@@ -111,7 +124,7 @@ class AuthService {
       }
       
       this.saveUsers();
-      console.log('✅ Synchronisation avec Supabase terminée');
+      console.log('✅ Synchronisation utilisateurs avec Supabase terminée');
     } catch (error) {
       console.log('⚠️ Erreur synchronisation Supabase:', error);
     }

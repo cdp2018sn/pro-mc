@@ -1,4 +1,4 @@
-import { Mission, Document, Sanction, Remark, Finding } from '../types/mission';
+import { Mission, Document, Sanction, Remark, Finding, ReponseSuivi } from '../types/mission';
 import { SupabaseService } from '../services/supabaseService';
 
 // Base de données unifiée avec Supabase comme source principale et localStorage comme fallback
@@ -13,7 +13,7 @@ export class UnifiedDatabase {
 
   private async initialize() {
     try {
-      console.log('🔧 Initialisation de la base de données...');
+      console.log('🔧 Initialisation de la base de données unifiée...');
       this.useSupabase = await SupabaseService.testConnection();
       this.isInitialized = true;
       
@@ -22,17 +22,34 @@ export class UnifiedDatabase {
         await this.syncLocalToSupabase();
       } else {
         console.log('⚠️ Mode localStorage - Supabase non disponible');
+        this.ensureLocalStorageStructure();
       }
     } catch (error) {
       console.error('Erreur initialisation:', error);
       this.useSupabase = false;
       this.isInitialized = true;
+      this.ensureLocalStorageStructure();
     }
   }
 
   private async ensureInitialized() {
     if (!this.isInitialized && this.initPromise) {
       await this.initPromise;
+    }
+  }
+
+  private ensureLocalStorageStructure() {
+    try {
+      // S'assurer que la structure localStorage existe
+      if (!localStorage.getItem('cdp_missions')) {
+        localStorage.setItem('cdp_missions', JSON.stringify([]));
+      }
+      if (!localStorage.getItem('cdp_users')) {
+        localStorage.setItem('cdp_users', JSON.stringify([]));
+      }
+      console.log('✅ Structure localStorage initialisée');
+    } catch (error) {
+      console.error('Erreur initialisation localStorage:', error);
     }
   }
 
@@ -43,16 +60,21 @@ export class UnifiedDatabase {
     
     if (this.useSupabase) {
       try {
+        console.log('📡 Récupération des missions depuis Supabase...');
         const missions = await SupabaseService.getMissions();
         this.saveMissionsToLocalStorage(missions);
+        console.log(`✅ ${missions.length} missions récupérées depuis Supabase`);
         return missions;
       } catch (error) {
-        console.error('Erreur Supabase, fallback localStorage:', error);
+        console.error('❌ Erreur Supabase, fallback localStorage:', error);
         this.useSupabase = false;
       }
     }
     
-    return this.getMissionsFromLocalStorage();
+    console.log('💾 Récupération des missions depuis localStorage...');
+    const missions = this.getMissionsFromLocalStorage();
+    console.log(`✅ ${missions.length} missions récupérées depuis localStorage`);
+    return missions;
   }
 
   async addMission(mission: Omit<Mission, 'id'>): Promise<Mission> {
@@ -60,16 +82,21 @@ export class UnifiedDatabase {
     
     if (this.useSupabase) {
       try {
+        console.log('📡 Ajout mission dans Supabase...');
         const newMission = await SupabaseService.createMission(mission);
         this.addMissionToLocalStorage(newMission);
+        console.log('✅ Mission ajoutée dans Supabase et localStorage');
         return newMission;
       } catch (error) {
-        console.error('Erreur Supabase, fallback localStorage:', error);
+        console.error('❌ Erreur Supabase, fallback localStorage:', error);
         this.useSupabase = false;
       }
     }
     
-    return this.addMissionToLocalStorage(mission);
+    console.log('💾 Ajout mission dans localStorage...');
+    const newMission = this.addMissionToLocalStorage(mission);
+    console.log('✅ Mission ajoutée dans localStorage');
+    return newMission;
   }
 
   async updateMission(id: string, updates: Partial<Mission>): Promise<void> {
@@ -77,16 +104,20 @@ export class UnifiedDatabase {
     
     if (this.useSupabase) {
       try {
+        console.log('📡 Mise à jour mission dans Supabase...');
         await SupabaseService.updateMission(id, updates);
         this.updateMissionInLocalStorage(id, updates);
+        console.log('✅ Mission mise à jour dans Supabase et localStorage');
         return;
       } catch (error) {
-        console.error('Erreur Supabase, fallback localStorage:', error);
+        console.error('❌ Erreur Supabase, fallback localStorage:', error);
         this.useSupabase = false;
       }
     }
     
+    console.log('💾 Mise à jour mission dans localStorage...');
     this.updateMissionInLocalStorage(id, updates);
+    console.log('✅ Mission mise à jour dans localStorage');
   }
 
   async deleteMission(id: string): Promise<void> {
@@ -94,16 +125,20 @@ export class UnifiedDatabase {
     
     if (this.useSupabase) {
       try {
+        console.log('📡 Suppression mission dans Supabase...');
         await SupabaseService.deleteMission(id);
         this.deleteMissionFromLocalStorage(id);
+        console.log('✅ Mission supprimée dans Supabase et localStorage');
         return;
       } catch (error) {
-        console.error('Erreur Supabase, fallback localStorage:', error);
+        console.error('❌ Erreur Supabase, fallback localStorage:', error);
         this.useSupabase = false;
       }
     }
     
+    console.log('💾 Suppression mission dans localStorage...');
     this.deleteMissionFromLocalStorage(id);
+    console.log('✅ Mission supprimée dans localStorage');
   }
 
   // ==================== DOCUMENTS ====================
@@ -115,7 +150,7 @@ export class UnifiedDatabase {
       try {
         return await SupabaseService.getDocuments(missionId);
       } catch (error) {
-        console.error('Erreur Supabase documents, fallback localStorage:', error);
+        console.error('❌ Erreur Supabase documents, fallback localStorage:', error);
         this.useSupabase = false;
       }
     }
@@ -131,9 +166,10 @@ export class UnifiedDatabase {
     if (this.useSupabase) {
       try {
         await SupabaseService.createDocument(documentData);
+        this.addDocumentToLocalStorage(missionId, document);
         return;
       } catch (error) {
-        console.error('Erreur Supabase document, fallback localStorage:', error);
+        console.error('❌ Erreur Supabase document, fallback localStorage:', error);
         this.useSupabase = false;
       }
     }
@@ -147,9 +183,10 @@ export class UnifiedDatabase {
     if (this.useSupabase) {
       try {
         await SupabaseService.deleteDocument(documentId);
+        this.deleteDocumentFromLocalStorage(missionId, documentId);
         return;
       } catch (error) {
-        console.error('Erreur Supabase suppression document, fallback localStorage:', error);
+        console.error('❌ Erreur Supabase suppression document, fallback localStorage:', error);
         this.useSupabase = false;
       }
     }
@@ -166,7 +203,7 @@ export class UnifiedDatabase {
       try {
         return await SupabaseService.getFindings(missionId);
       } catch (error) {
-        console.error('Erreur Supabase findings, fallback localStorage:', error);
+        console.error('❌ Erreur Supabase findings, fallback localStorage:', error);
         this.useSupabase = false;
       }
     }
@@ -191,7 +228,11 @@ export class UnifiedDatabase {
         updated_at: new Date().toISOString()
       };
     } else {
-      findingData = finding;
+      findingData = {
+        ...finding,
+        created_at: finding.created_at || new Date().toISOString(),
+        updated_at: finding.updated_at || new Date().toISOString()
+      };
     }
     
     const fullFindingData = { ...findingData, mission_id: missionId };
@@ -199,9 +240,10 @@ export class UnifiedDatabase {
     if (this.useSupabase) {
       try {
         await SupabaseService.createFinding(fullFindingData);
+        this.addFindingToLocalStorage(missionId, findingData);
         return;
       } catch (error) {
-        console.error('Erreur Supabase finding, fallback localStorage:', error);
+        console.error('❌ Erreur Supabase finding, fallback localStorage:', error);
         this.useSupabase = false;
       }
     }
@@ -218,7 +260,7 @@ export class UnifiedDatabase {
       try {
         return await SupabaseService.getSanctions(missionId);
       } catch (error) {
-        console.error('Erreur Supabase sanctions, fallback localStorage:', error);
+        console.error('❌ Erreur Supabase sanctions, fallback localStorage:', error);
         this.useSupabase = false;
       }
     }
@@ -240,7 +282,11 @@ export class UnifiedDatabase {
         updated_at: new Date().toISOString()
       };
     } else {
-      sanctionData = sanction;
+      sanctionData = {
+        ...sanction,
+        created_at: sanction.created_at || new Date().toISOString(),
+        updated_at: sanction.updated_at || new Date().toISOString()
+      };
     }
     
     const fullSanctionData = { ...sanctionData, mission_id: missionId };
@@ -248,9 +294,10 @@ export class UnifiedDatabase {
     if (this.useSupabase) {
       try {
         await SupabaseService.createSanction(fullSanctionData);
+        this.addSanctionToLocalStorage(missionId, sanctionData);
         return;
       } catch (error) {
-        console.error('Erreur Supabase sanction, fallback localStorage:', error);
+        console.error('❌ Erreur Supabase sanction, fallback localStorage:', error);
         this.useSupabase = false;
       }
     }
@@ -264,9 +311,10 @@ export class UnifiedDatabase {
     if (this.useSupabase) {
       try {
         await SupabaseService.updateSanction(sanctionId, updates);
+        this.updateSanctionInLocalStorage(sanctionId, updates);
         return;
       } catch (error) {
-        console.error('Erreur Supabase mise à jour sanction, fallback localStorage:', error);
+        console.error('❌ Erreur Supabase mise à jour sanction, fallback localStorage:', error);
         this.useSupabase = false;
       }
     }
@@ -280,9 +328,10 @@ export class UnifiedDatabase {
     if (this.useSupabase) {
       try {
         await SupabaseService.deleteSanction(sanctionId);
+        this.deleteSanctionFromLocalStorage(sanctionId);
         return;
       } catch (error) {
-        console.error('Erreur Supabase suppression sanction, fallback localStorage:', error);
+        console.error('❌ Erreur Supabase suppression sanction, fallback localStorage:', error);
         this.useSupabase = false;
       }
     }
@@ -299,7 +348,7 @@ export class UnifiedDatabase {
       try {
         return await SupabaseService.getRemarks(missionId);
       } catch (error) {
-        console.error('Erreur Supabase remarques, fallback localStorage:', error);
+        console.error('❌ Erreur Supabase remarques, fallback localStorage:', error);
         this.useSupabase = false;
       }
     }
@@ -319,9 +368,10 @@ export class UnifiedDatabase {
     if (this.useSupabase) {
       try {
         await SupabaseService.createRemark(remarkData);
+        this.addRemarkToLocalStorage(missionId, content);
         return;
       } catch (error) {
-        console.error('Erreur Supabase remarque, fallback localStorage:', error);
+        console.error('❌ Erreur Supabase remarque, fallback localStorage:', error);
         this.useSupabase = false;
       }
     }
@@ -338,7 +388,7 @@ export class UnifiedDatabase {
       try {
         return await SupabaseService.updateMissionStatuses();
       } catch (error) {
-        console.error('Erreur Supabase statuts, fallback localStorage:', error);
+        console.error('❌ Erreur Supabase statuts, fallback localStorage:', error);
         this.useSupabase = false;
       }
     }
@@ -379,7 +429,18 @@ export class UnifiedDatabase {
   private getMissionsFromLocalStorage(): Mission[] {
     try {
       const stored = localStorage.getItem('cdp_missions');
-      return stored ? JSON.parse(stored) : [];
+      const missions = stored ? JSON.parse(stored) : [];
+      
+      // S'assurer que chaque mission a la structure complète
+      return missions.map((mission: any) => ({
+        ...mission,
+        findings: mission.findings || [],
+        remarks: mission.remarks || [],
+        sanctions: mission.sanctions || [],
+        documents: mission.documents || [],
+        team_members: mission.team_members || [],
+        objectives: mission.objectives || []
+      }));
     } catch (error) {
       console.error('Erreur localStorage missions:', error);
       return [];
@@ -405,7 +466,9 @@ export class UnifiedDatabase {
       findings: (missionData as Mission).findings || [],
       remarks: (missionData as Mission).remarks || [],
       sanctions: (missionData as Mission).sanctions || [],
-      documents: (missionData as Mission).documents || []
+      documents: (missionData as Mission).documents || [],
+      team_members: (missionData as Mission).team_members || [],
+      objectives: (missionData as Mission).objectives || []
     };
     
     missions.push(newMission);
@@ -599,7 +662,7 @@ export class UnifiedDatabase {
               await SupabaseService.createMission(mission);
               console.log(`✅ Mission ${mission.reference} synchronisée`);
             }
-          } catch (error) {
+          } catch (error: any) {
             if (!error.message.includes('duplicate')) {
               console.error(`❌ Erreur sync mission ${mission.reference}:`, error);
             }
@@ -611,7 +674,8 @@ export class UnifiedDatabase {
     }
   }
 
-  // Méthodes pour la compatibilité avec l'ancien code
+  // ==================== MÉTHODES COMPATIBILITÉ ====================
+  
   async updateMissionReponseStatus(missionId: string, reponseRecue: boolean, dateReponse?: string): Promise<void> {
     await this.updateMission(missionId, {
       reponse_recue: reponseRecue,
@@ -619,17 +683,36 @@ export class UnifiedDatabase {
     });
   }
 
-  async addReponseSuivi(missionId: string, reponse: any): Promise<void> {
+  async addReponseSuivi(missionId: string, reponse: ReponseSuivi): Promise<void> {
     await this.addRemark(missionId, `Réponse du ${reponse.date_reponse}: ${reponse.contenu}`);
   }
 
   async reconnectSupabase(): Promise<boolean> {
     this.useSupabase = await SupabaseService.testConnection();
+    if (this.useSupabase) {
+      await this.syncLocalToSupabase();
+    }
     return this.useSupabase;
   }
 
   getConnectionStatus(): 'supabase' | 'localStorage' {
     return this.useSupabase ? 'supabase' : 'localStorage';
+  }
+
+  // ==================== MÉTHODES PUBLIQUES POUR COMPATIBILITÉ ====================
+  
+  async open(): Promise<void> {
+    await this.ensureInitialized();
+  }
+
+  async delete(): Promise<void> {
+    try {
+      localStorage.removeItem('cdp_missions');
+      localStorage.removeItem('cdp_users');
+      this.ensureLocalStorageStructure();
+    } catch (error) {
+      console.error('Erreur suppression localStorage:', error);
+    }
   }
 }
 

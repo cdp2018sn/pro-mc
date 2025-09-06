@@ -87,7 +87,7 @@ export class SupabaseService {
     }
   }
 
-  static async createUser(userData: CreateUserData & { id?: string }): Promise<User> {
+  static async createUser(userData: CreateUserData & { id?: string; permissions?: any }): Promise<User> {
     try {
       const userToCreate = {
         id: userData.id || crypto.randomUUID(),
@@ -130,7 +130,7 @@ export class SupabaseService {
     }
   }
 
-  static async updateUser(id: string, updates: UpdateUserData): Promise<User> {
+  static async updateUser(id: string, updates: UpdateUserData & { last_login?: string }): Promise<User> {
     try {
       const updateData = {
         ...updates,
@@ -682,6 +682,33 @@ export class SupabaseService {
     } catch (error) {
       console.error('Erreur updateMissionStatuses:', error);
       throw error;
+    }
+  }
+
+  // ==================== STATISTIQUES ====================
+  
+  static async getStatistics() {
+    try {
+      const missions = await this.getMissions();
+      
+      return {
+        total: missions.length,
+        en_cours: missions.filter(m => m.status === 'EN_COURS').length,
+        planifiee: missions.filter(m => m.status === 'PLANIFIEE').length,
+        terminee: missions.filter(m => m.status === 'TERMINEE').length,
+        annulee: missions.filter(m => m.status === 'ANNULEE').length,
+        attente: missions.filter(m => m.status === 'ATTENTE_REPONSE').length
+      };
+    } catch (error) {
+      console.error('Erreur getStatistics:', error);
+      return {
+        total: 0,
+        en_cours: 0,
+        planifiee: 0,
+        terminee: 0,
+        annulee: 0,
+        attente: 0
+      };
     }
   }
 }

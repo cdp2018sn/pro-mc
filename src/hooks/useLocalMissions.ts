@@ -9,15 +9,18 @@ export const useLocalMissions = () => {
 
   const fetchMissions = async () => {
     try {
-      console.log('📋 Récupération des missions depuis la base de données...');
+      console.log('📋 useLocalMissions: Récupération des missions...');
+      setLoading(true);
+      setError(null);
+      
       const result = await db.getAllMissions();
-      console.log(`✅ ${result.length} missions récupérées`);
+      console.log(`✅ useLocalMissions: ${result.length} missions récupérées`);
       
       setMissions(result);
-      setError(null);
     } catch (err) {
-      console.error('Erreur lors de la récupération des missions:', err);
+      console.error('❌ useLocalMissions: Erreur lors de la récupération des missions:', err);
       setError('Erreur lors de la récupération des missions depuis la base de données');
+      setMissions([]); // S'assurer qu'on a un tableau vide en cas d'erreur
     } finally {
       setLoading(false);
     }
@@ -29,14 +32,18 @@ export const useLocalMissions = () => {
 
   const refreshMissions = async () => {
     try {
+      console.log('🔄 useLocalMissions: Rafraîchissement des missions...');
       setLoading(true);
-      const allMissions = await db.getAllMissions();
-      console.log('Missions après rafraîchissement:', allMissions);
-      setMissions(allMissions);
       setError(null);
+      
+      const allMissions = await db.getAllMissions();
+      console.log('✅ useLocalMissions: Missions après rafraîchissement:', allMissions.length);
+      
+      setMissions(allMissions);
     } catch (err) {
-      console.error('Erreur lors du rafraîchissement des missions:', err);
+      console.error('❌ useLocalMissions: Erreur lors du rafraîchissement des missions:', err);
       setError('Erreur lors du chargement des missions');
+      setMissions([]);
     } finally {
       setLoading(false);
     }
@@ -44,14 +51,17 @@ export const useLocalMissions = () => {
 
   const addMission = async (missionData: Omit<Mission, 'id'>) => {
     try {
+      console.log('➕ useLocalMissions: Ajout d\'une nouvelle mission:', missionData.title);
       setLoading(true);
-      console.log('Ajout d\'une nouvelle mission:', missionData);
+      setError(null);
+      
       const newMission = await db.addMission(missionData);
-      console.log('Mission ajoutée avec succès:', newMission);
+      console.log('✅ useLocalMissions: Mission ajoutée avec succès:', newMission.reference);
+      
       await refreshMissions();
       return newMission;
     } catch (err) {
-      console.error('Erreur lors de l\'ajout de la mission:', err);
+      console.error('❌ useLocalMissions: Erreur lors de l\'ajout de la mission:', err);
       setError('Erreur lors de l\'ajout de la mission');
       throw err;
     } finally {
@@ -61,13 +71,16 @@ export const useLocalMissions = () => {
 
   const updateMissionStatuses = async () => {
     try {
+      console.log('🔄 useLocalMissions: Mise à jour des statuts...');
       setLoading(true);
-      // Pour localStorage, on peut simuler la mise à jour des statuts
-      console.log('Mise à jour des statuts (mode local)');
+      
+      const result = await db.updateMissionStatuses();
+      console.log('✅ useLocalMissions: Statuts mis à jour:', result);
+      
       await refreshMissions();
-      return { updated: 0 };
+      return result;
     } catch (err) {
-      console.error('Erreur lors de la mise à jour des statuts:', err);
+      console.error('❌ useLocalMissions: Erreur lors de la mise à jour des statuts:', err);
       setError('Erreur lors de la mise à jour des statuts');
       throw err;
     } finally {
@@ -77,11 +90,12 @@ export const useLocalMissions = () => {
 
   const checkUpcomingStatusChanges = async () => {
     try {
-      // Pour localStorage, on peut simuler la vérification
-      console.log('Vérification des changements de statut (mode local)');
-      return { startingSoon: [], endingSoon: [] };
+      console.log('🔍 useLocalMissions: Vérification des changements à venir...');
+      const result = await db.checkUpcomingStatusChanges();
+      console.log('✅ useLocalMissions: Changements à venir:', result);
+      return result;
     } catch (err) {
-      console.error('Erreur lors de la vérification des changements de statut:', err);
+      console.error('❌ useLocalMissions: Erreur lors de la vérification des changements de statut:', err);
       return { startingSoon: [], endingSoon: [] };
     }
   };
@@ -95,4 +109,4 @@ export const useLocalMissions = () => {
     updateMissionStatuses, 
     checkUpcomingStatusChanges 
   };
-}; 
+};
