@@ -193,13 +193,7 @@ export class SupabaseService {
     try {
       const { data, error } = await supabase
         .from('missions')
-        .select(`
-          *,
-          documents(*),
-          findings(*),
-          sanctions(*),
-          remarks(*)
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -207,7 +201,16 @@ export class SupabaseService {
         throw new Error(`Erreur lors de la récupération des missions: ${error.message}`);
       }
 
-      return (data || []).map(mission => ({
+      // Fetch related data separately for each mission
+      const missions = await Promise.all((data || []).map(async mission => {
+        const [documents, findings, sanctions, remarks] = await Promise.all([
+          this.getDocuments(mission.id).catch(() => []),
+          this.getFindings(mission.id).catch(() => []),
+          this.getSanctions(mission.id).catch(() => []),
+          this.getRemarks(mission.id).catch(() => [])
+        ]);
+
+        return {
         id: mission.id,
         reference: mission.reference,
         title: mission.title,
@@ -223,14 +226,17 @@ export class SupabaseService {
         date_decision: mission.date_decision,
         team_members: mission.team_members || [],
         objectives: mission.objectives || [],
-        findings: mission.findings || [],
-        remarks: mission.remarks || [],
-        sanctions: mission.sanctions || [],
-        documents: mission.documents || [],
+        findings,
+        remarks,
+        sanctions,
+        documents,
         created_at: mission.created_at,
         updated_at: mission.updated_at,
         ignoreAutoStatusChange: mission.ignore_auto_status_change
+        };
       }));
+
+      return missions;
     } catch (error) {
       console.error('Erreur dans getMissions:', error);
       throw error;
@@ -337,13 +343,7 @@ export class SupabaseService {
     try {
       const { data, error } = await supabase
         .from('missions')
-        .select(`
-          *,
-          documents(*),
-          findings(*),
-          sanctions(*),
-          remarks(*)
-        `)
+        .select('*')
         .eq('id', id)
         .single();
 
@@ -351,6 +351,14 @@ export class SupabaseService {
         if (error.code === 'PGRST116') return null;
         throw new Error(`Erreur lors de la récupération de la mission: ${error.message}`);
       }
+
+      // Fetch related data separately
+      const [documents, findings, sanctions, remarks] = await Promise.all([
+        this.getDocuments(id).catch(() => []),
+        this.getFindings(id).catch(() => []),
+        this.getSanctions(id).catch(() => []),
+        this.getRemarks(id).catch(() => [])
+      ]);
 
       return {
         id: data.id,
@@ -368,10 +376,10 @@ export class SupabaseService {
         date_decision: data.date_decision,
         team_members: data.team_members || [],
         objectives: data.objectives || [],
-        findings: data.findings || [],
-        remarks: data.remarks || [],
-        sanctions: data.sanctions || [],
-        documents: data.documents || [],
+        findings,
+        remarks,
+        sanctions,
+        documents,
         created_at: data.created_at,
         updated_at: data.updated_at,
         ignoreAutoStatusChange: data.ignore_auto_status_change
