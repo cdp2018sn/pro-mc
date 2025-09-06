@@ -204,10 +204,11 @@ class AuthService {
 
         if (authError) {
           console.log('⚠️ Erreur authentification Supabase:', authError.message);
-          throw new Error('Erreur d\'authentification Supabase');
+          console.log('🔄 Tentative d\'authentification locale...');
+          // Ne pas lancer d'erreur, continuer avec l'authentification locale
         }
 
-        if (authResult && authResult.length > 0) {
+        if (!authError && authResult && authResult.length > 0) {
           const userData = authResult[0];
           console.log('✅ Authentification Supabase réussie pour:', userData.user_email);
           
