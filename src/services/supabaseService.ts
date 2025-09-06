@@ -9,14 +9,21 @@ export class SupabaseService {
     try {
       console.log('🔍 TEST CONNEXION SUPABASE...');
       
-      const { error } = await supabase
+      // Test avec timeout pour éviter les blocages
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Timeout')), 5000)
+      );
+      
+      const testPromise = supabase
         .from('users')
         .select('id')
         .limit(1);
       
+      const { error } = await Promise.race([testPromise, timeoutPromise]) as any;
+      
       if (error) {
-        console.log('❌ SUPABASE NON DISPONIBLE:', error.message);
-        console.log('🚨 EXÉCUTEZ LE SCRIPT SQL DANS SUPABASE DASHBOARD !');
+        if (error.message === 'Timeout') {
+          console.log('❌ SUPABASE TIMEOUT - Problème de connexion réseau');
         return false;
       }
       
