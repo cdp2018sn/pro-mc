@@ -43,17 +43,18 @@ export const GlobalSyncStatus: React.FC = () => {
   const handleForceSync = async () => {
     try {
       setLoading(true);
+      console.log('🔄 FORÇAGE DE LA SYNCHRONISATION...');
       const success = await db.forceGlobalSync();
       
       if (success) {
-        toast.success('Synchronisation forcée réussie');
+        toast.success('🎉 Synchronisation forcée réussie ! Vérifiez Supabase Dashboard');
         await checkSyncStatus();
       } else {
-        toast.error('Échec de la synchronisation forcée');
+        toast.error('❌ Échec de la synchronisation - Vérifiez la console (F12)');
       }
     } catch (error) {
       console.error('Erreur synchronisation forcée:', error);
-      toast.error('Erreur lors de la synchronisation');
+      toast.error('❌ Erreur synchronisation - Consultez la console (F12)');
     } finally {
       setLoading(false);
     }
@@ -207,11 +208,12 @@ export const GlobalSyncStatus: React.FC = () => {
                 <ExclamationTriangleIcon className="h-5 w-5 text-orange-400 mr-2" />
                 <div>
                   <h4 className="text-sm font-medium text-orange-800">
-                    Différences détectées
+                    🚨 DONNÉES NON SYNCHRONISÉES DÉTECTÉES
                   </h4>
                   <p className="text-sm text-orange-700 mt-1">
-                    Certaines données locales ne sont pas synchronisées avec Supabase. 
-                    Cliquez sur "Forcer la sync" pour résoudre.
+                    Vous avez {Object.values(dataIntegrity.differences).reduce((sum, diff) => sum + Math.abs(diff), 0)} données non synchronisées.
+                    <br />
+                    <strong>SOLUTION :</strong> Cliquez sur "Forcer la sync" pour synchroniser immédiatement.
                   </p>
                 </div>
               </div>
