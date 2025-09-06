@@ -97,12 +97,12 @@ export class SupabaseService {
       // Utiliser la fonction RPC pour créer l'utilisateur avec hachage sécurisé
       const { data, error } = await supabase
         .rpc('hash_and_insert_user', {
-          user_email: userData.email,
-          user_name: userData.name,
-          user_role: userData.role,
-          user_password: userData.password,
-          user_department: userData.department || '',
-          user_phone: userData.phone || ''
+          p_email: userData.email,
+          p_name: userData.name,
+          p_role: userData.role,
+          p_password: userData.password,
+          p_department: userData.department || '',
+          p_phone: userData.phone || ''
         });
 
       if (error) {
