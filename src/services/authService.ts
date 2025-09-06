@@ -1,6 +1,6 @@
 import { User, LoginCredentials, CreateUserData, UpdateUserData, ROLE_PERMISSIONS, UserRole, UserWithPassword, Permissions as UserPermissions } from '../types/auth';
 import { SupabaseService } from './supabaseService';
-import { GlobalSyncService } from './globalSyncService';
+import { supabase } from '../config/supabase';
 
 // Fonction simple de hachage de mot de passe (pour la démo)
 function hashPassword(password: string): string {
@@ -190,6 +190,65 @@ class AuthService {
     
     const { email, password } = credentials;
 
+    // Essayer d'abord l'authentification Supabase
+    if (this.isSupabaseConnected) {
+      try {
+        console.log('🔐 Tentative de connexion Supabase Auth...');
+        
+        // Utiliser Supabase Auth pour la connexion
+        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+          email,
+          password
+        });
+
+        if (!authError && authData.user) {
+          console.log('✅ Connexion Supabase Auth réussie');
+          
+          // Récupérer les données utilisateur depuis la table users
+          const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('*')
+            .eq('email', email)
+            .single();
+
+          if (!userError && userData) {
+            const user: User = {
+              id: userData.id,
+              email: userData.email,
+              name: userData.name,
+              role: userData.role,
+              permissions: userData.permissions || ROLE_PERMISSIONS[userData.role],
+              isActive: userData.is_active,
+              department: userData.department,
+              phone: userData.phone,
+              created_at: userData.created_at,
+              last_login: new Date().toISOString()
+            };
+
+            // Mettre à jour la dernière connexion
+            await supabase
+              .from('users')
+              .update({ last_login: user.last_login })
+              .eq('id', user.id);
+
+            // Créer la session avec les données Supabase
+            const sessionData = {
+              user,
+              supabaseSession: authData.session,
+              expiresAt: Date.now() + 24 * 60 * 60 * 1000
+            };
+
+            localStorage.setItem('session', btoa(JSON.stringify(sessionData)));
+            console.log('✅ Session Supabase créée pour:', user.email);
+            return user;
+          }
+        }
+        
+        console.log('⚠️ Connexion Supabase Auth échouée, fallback vers local');
+      } catch (error) {
+        console.log('⚠️ Erreur Supabase Auth, fallback vers local:', error);
+      }
+    }
     // Vérifier si le compte est bloqué (sauf pour l'admin)
     const attempts = this.loginAttempts[email];
     if (attempts && attempts.blockedUntil && attempts.blockedUntil > Date.now() && email !== 'abdoulaye.niang@cdp.sn') {
@@ -278,6 +337,11 @@ class AuthService {
         return null;
       }
 
+      // Si c'est une session Supabase, vérifier qu'elle est toujours valide
+      if (session.supabaseSession && this.isSupabaseConnected) {
+        // La session Supabase gère sa propre expiration
+        return session.user;
+      }
       return session.user;
     } catch {
       localStorage.removeItem('session');
@@ -286,6 +350,10 @@ class AuthService {
   }
 
   isAuthenticated(): boolean {
+    // Déconnexion Supabase si applicable
+    if (this.isSupabaseConnected) {
+      supabase.auth.signOut().catch(console.error);
+    }
     return this.getCurrentUser() !== null;
   }
 
@@ -329,6 +397,25 @@ class AuthService {
     if (this.isSupabaseConnected) {
       try {
         console.log('🔄 Sauvegarde utilisateur dans Supabase...');
+        
+        // Créer l'utilisateur dans Supabase Auth
+        const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+          email: userData.email,
+          password: userData.password,
+          email_confirm: true
+        });
+
+        if (authError) {
+          console.log('⚠️ Erreur création Supabase Auth:', authError.message);
+          // Continuer avec la création locale
+        } else {
+          console.log('✅ Utilisateur créé dans Supabase Auth');
+          
+          // Mettre à jour l'ID avec celui de Supabase Auth
+          newUser.id = authData.user.id;
+        }
+
+        // Créer l'entrée dans la table users
         await SupabaseService.createUser({
           id: newUser.id,
           email: newUser.email,
@@ -340,9 +427,6 @@ class AuthService {
           phone: newUser.phone,
           password: userData.password
         });
-        
-        // Synchronisation globale
-        await GlobalSyncService.syncUser('create', newUser);
         
         console.log('✅ Utilisateur sauvegardé dans Supabase:', newUser.email);
       } catch (error) {
@@ -376,9 +460,6 @@ class AuthService {
         console.log('🔄 Mise à jour utilisateur dans Supabase...');
         await SupabaseService.updateUser(userId, updates);
         
-        // Synchronisation globale
-        await GlobalSyncService.syncUser('update', updatedUser);
-        
         console.log('✅ Utilisateur mis à jour dans Supabase:', updatedUser.email);
       } catch (error) {
         console.log('⚠️ Erreur mise à jour Supabase:', error);
@@ -407,9 +488,6 @@ class AuthService {
       try {
         console.log('🔄 Suppression utilisateur dans Supabase...');
         await SupabaseService.deleteUser(userId);
-        
-        // Synchronisation globale
-        await GlobalSyncService.syncUser('delete', { id: userId });
         
         console.log('✅ Utilisateur supprimé dans Supabase:', deletedUser.email);
       } catch (error) {

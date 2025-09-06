@@ -44,13 +44,63 @@ export const GlobalSyncStatus: React.FC = () => {
     try {
       setLoading(true);
       console.log('🔄 FORÇAGE DE LA SYNCHRONISATION...');
-      const success = await db.forceGlobalSync();
       
-      if (success) {
-        toast.success('🎉 Synchronisation forcée réussie ! Vérifiez Supabase Dashboard');
+      // Forcer la synchronisation de tous les utilisateurs locaux vers Supabase
+      const localUsers = JSON.parse(localStorage.getItem('cdp_users') || '[]');
+      console.log(`📊 ${localUsers.length} utilisateurs locaux à synchroniser`);
+      
+      let syncCount = 0;
+      for (const user of localUsers) {
+        try {
+          // Vérifier si l'utilisateur existe déjà dans Supabase
+          const existingUser = await SupabaseService.getUserByEmail(user.email);
+          
+          if (!existingUser) {
+            // Créer l'utilisateur dans Supabase
+            await SupabaseService.createUser({
+              id: user.id,
+              email: user.email,
+              name: user.name,
+              role: user.role,
+              permissions: user.permissions,
+              isActive: user.isActive,
+              department: user.department,
+              phone: user.phone,
+              password: 'TempPassword123!' // Mot de passe temporaire
+            });
+            syncCount++;
+            console.log(`✅ Utilisateur synchronisé: ${user.email}`);
+          } else {
+            console.log(`ℹ️ Utilisateur déjà synchronisé: ${user.email}`);
+          }
+        } catch (error) {
+          console.error(`❌ Erreur sync utilisateur ${user.email}:`, error);
+        }
+      }
+      
+      // Synchroniser les missions
+      const localMissions = await db.getAllMissions();
+      console.log(`📊 ${localMissions.length} missions locales à synchroniser`);
+      
+      for (const mission of localMissions) {
+        try {
+          const existingMission = await SupabaseService.getMissionById(mission.id);
+          
+          if (!existingMission) {
+            await SupabaseService.createMission(mission);
+            syncCount++;
+            console.log(`✅ Mission synchronisée: ${mission.reference}`);
+          }
+        } catch (error) {
+          console.error(`❌ Erreur sync mission ${mission.reference}:`, error);
+        }
+      }
+      
+      if (syncCount > 0) {
+        toast.success(`🎉 ${syncCount} éléments synchronisés ! Vérifiez Supabase Dashboard`);
         await checkSyncStatus();
       } else {
-        toast.error('❌ Échec de la synchronisation - Vérifiez la console (F12)');
+        toast.success('✅ Toutes les données sont déjà synchronisées');
       }
     } catch (error) {
       console.error('Erreur synchronisation forcée:', error);

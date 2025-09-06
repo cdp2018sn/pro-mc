@@ -94,8 +94,26 @@ export class SupabaseService {
     try {
       console.log('📡 CRÉATION UTILISATEUR DANS SUPABASE:', userData.email);
       
+      // Créer d'abord l'utilisateur dans Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+        email: userData.email,
+        password: userData.password || 'TempPassword123!',
+        email_confirm: true,
+        user_metadata: {
+          name: userData.name,
+          role: userData.role
+        }
+      });
+
+      if (authError) {
+        console.log('⚠️ Erreur création Supabase Auth:', authError.message);
+        // Continuer avec l'ID fourni ou généré
+      }
+
+      const userId = authData?.user?.id || userData.id || crypto.randomUUID();
+      
       const userToCreate = {
-        id: userData.id || crypto.randomUUID(),
+        id: userId,
         email: userData.email,
         name: userData.name,
         role: userData.role,
