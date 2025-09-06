@@ -21,8 +21,9 @@
     "import-test-missions": "tsx src/scripts/importTestMissions.ts",
     "server": "cd server && npm start",
     "server:dev": "cd server && npm run dev",
+    "server:supabase": "cd server && node index-supabase.js",
     "start": "npm run build && npm run server",
-    "test-db": "node -e \"import('./src/config/database.js').then(m => m.testConnection()).then(console.log).catch(console.error)\""
+    "test-supabase": "node test-supabase.js"
   },
   "dependencies": {
     "@heroicons/react": "^2.0.18",

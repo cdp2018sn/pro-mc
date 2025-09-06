@@ -1,5 +1,7 @@
-const { Pool } = require('pg');
-require('dotenv').config();
+import pkg from 'pg';
+const { Pool } = pkg;
+import dotenv from 'dotenv';
+dotenv.config();
 
 // Configuration de la base de données PostgreSQL
 const pool = new Pool({
@@ -48,7 +50,7 @@ async function checkDatabaseExists() {
   }
 }
 
-module.exports = {
+export {
   pool,
   testConnection,
   closePool,
