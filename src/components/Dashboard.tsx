@@ -3,7 +3,7 @@ import { Mission } from '../types/mission';
 import { db } from '../database/localStorageDb';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title } from 'chart.js';
 import { format } from 'date-fns';
-import fr from 'date-fns/locale/fr';
+import { default as fr } from 'date-fns/locale/fr';
 import { StatusChangeAlerts } from './StatusChangeAlerts';
 import { IgnoredMissions } from './IgnoredMissions';
 import { ArrowPathIcon } from '@heroicons/react/24/outline';
