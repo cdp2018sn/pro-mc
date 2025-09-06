@@ -92,25 +92,10 @@ export class SupabaseService {
 
   static async createUser(userData: CreateUserData & { id?: string; permissions?: any }): Promise<User> {
     try {
-      console.log('📡 CRÉATION UTILISATEUR DANS SUPABASE:', userData.email);
+      console.log('🌍 CRÉATION UTILISATEUR GLOBAL DANS SUPABASE:', userData.email);
       
-      // Créer d'abord l'utilisateur dans Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-        email: userData.email,
-        password: userData.password || 'TempPassword123!',
-        email_confirm: true,
-        user_metadata: {
-          name: userData.name,
-          role: userData.role
-        }
-      });
-
-      if (authError) {
-        console.log('⚠️ Erreur création Supabase Auth:', authError.message);
-        // Continuer avec l'ID fourni ou généré
-      }
-
-      const userId = authData?.user?.id || userData.id || crypto.randomUUID();
+      // Créer directement dans la table users pour accès global immédiat
+      const userId = userData.id || crypto.randomUUID();
       
       const userToCreate = {
         id: userId,
@@ -121,6 +106,7 @@ export class SupabaseService {
         phone: userData.phone || '',
         is_active: true,
         permissions: userData.permissions || {},
+        password_hash: userData.password ? btoa(userData.password + 'salt') : null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
@@ -132,11 +118,11 @@ export class SupabaseService {
         .single();
 
       if (error) {
-        console.log('❌ ERREUR CRÉATION UTILISATEUR SUPABASE:', error.message);
+        console.log('❌ ERREUR CRÉATION UTILISATEUR GLOBAL:', error.message);
         throw new Error(`Erreur création utilisateur: ${error.message}`);
       }
 
-      console.log('✅ UTILISATEUR CRÉÉ DANS SUPABASE:', data.email);
+      console.log('✅ UTILISATEUR GLOBAL CRÉÉ - ACCESSIBLE PARTOUT:', data.email);
       
       return {
         id: data.id,

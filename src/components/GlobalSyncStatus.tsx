@@ -56,7 +56,8 @@ export const GlobalSyncStatus: React.FC = () => {
           const existingUser = await SupabaseService.getUserByEmail(user.email);
           
           if (!existingUser) {
-            // Créer l'utilisateur dans Supabase
+            // Créer l'utilisateur global dans Supabase
+            console.log(`🌍 Création utilisateur global: ${user.email}`);
             await SupabaseService.createUser({
               id: user.id,
               email: user.email,
@@ -66,12 +67,12 @@ export const GlobalSyncStatus: React.FC = () => {
               isActive: user.isActive,
               department: user.department,
               phone: user.phone,
-              password: 'TempPassword123!' // Mot de passe temporaire
+              password: user.password || 'TempPassword123!'
             });
             syncCount++;
-            console.log(`✅ Utilisateur synchronisé: ${user.email}`);
+            console.log(`✅ Utilisateur global créé: ${user.email}`);
           } else {
-            console.log(`ℹ️ Utilisateur déjà synchronisé: ${user.email}`);
+            console.log(`ℹ️ Utilisateur déjà global: ${user.email}`);
           }
         } catch (error) {
           console.error(`❌ Erreur sync utilisateur ${user.email}:`, error);
