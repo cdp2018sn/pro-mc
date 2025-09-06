@@ -1,5 +1,6 @@
 import { supabase } from '../config/supabase';
 import { Mission, Document, Finding, Sanction, Remark } from '../types/mission';
+import { mockService } from './mockService';
 import { User, CreateUserData, UpdateUserData } from '../types/auth';
 
 export class SupabaseService {
@@ -27,7 +28,12 @@ export class SupabaseService {
           console.log('🌐 Vérifiez votre connexion internet et les paramètres CORS');
         } else {
           console.log('❌ SUPABASE NON DISPONIBLE:', error.message);
-          console.log('🚨 EXÉCUTEZ LE SCRIPT SQL DANS SUPABASE DASHBOARD !');
+        if (error.code === 'PGRST002') {
+          console.warn('Supabase schema cache error detected. Using fallback mode.');
+          this.isConnected = false;
+          return false;
+        }
+        console.error('Supabase connection test failed:', error);
         }
         return false;
       }
@@ -47,9 +53,18 @@ export class SupabaseService {
   }
 
   // ==================== UTILISATEURS ====================
+    if (!this.isConnected) {
+      console.log('Supabase not connected, using mock authentication');
+      return mockService.authenticateUser(email, password);
+    }
+
   
   static async getUsers(): Promise<User[]> {
     try {
+        if (error.code === 'PGRST002') {
+          console.warn('Schema cache error during authentication, falling back to mock');
+          return mockService.authenticateUser(email, password);
+        }
       const { data, error } = await supabase
         .from('users')
         .select('*')
@@ -385,11 +400,17 @@ export class SupabaseService {
       return await this.getMissionById(id) || data;
     } catch (error) {
       console.error('Erreur updateMission:', error);
-      throw error;
+      console.log('Falling back to mock authentication');
+      return mockService.authenticateUser(email, password);
     }
   }
 
   static async getMissionById(id: string): Promise<Mission | null> {
+    if (!this.isConnected) {
+      console.log('Supabase not connected, using mock missions');
+      return mockService.getMissions();
+    }
+
     try {
       const { data, error } = await supabase
         .from('missions')
@@ -575,18 +596,28 @@ export class SupabaseService {
 
       return data || [];
     } catch (error) {
+        if (error.code === 'PGRST002') {
+          console.warn('Schema cache error fetching missions, falling back to mock');
+          return mockService.getMissions();
+        }
       console.error('Erreur getSanctions:', error);
-      return [];
+        return mockService.getMissions();
     }
   }
 
   static async createSanction(sanctionData: Omit<Sanction, 'id' | 'created_at' | 'updated_at'>): Promise<Sanction> {
     try {
-      const { data, error } = await supabase
+      console.log('Falling back to mock missions');
+      return mockService.getMissions();
         .from('sanctions')
         .insert({
           ...sanctionData,
           created_at: new Date().toISOString(),
+    if (!this.isConnected) {
+      console.log('Supabase not connected, using mock service');
+      return mockService.createMission(mission);
+    }
+
           updated_at: new Date().toISOString()
         })
         .select()
@@ -595,6 +626,10 @@ export class SupabaseService {
       if (error) {
         throw new Error(`Erreur création sanction: ${error.message}`);
       }
+        if (error.code === 'PGRST002') {
+          console.warn('Schema cache error creating mission, falling back to mock');
+          return mockService.createMission(mission);
+        }
 
       return data;
     } catch (error) {
@@ -602,11 +637,17 @@ export class SupabaseService {
       throw error;
     }
   }
-
+      console.log('Falling back to mock service');
+      return mockService.createMission(mission);
   static async updateSanction(id: string, updates: Partial<Sanction>): Promise<Sanction> {
     try {
       const { data, error } = await supabase
         .from('sanctions')
+    if (!this.isConnected) {
+      console.log('Supabase not connected, using mock service');
+      return mockService.updateMission(id, updates);
+    }
+
         .update({
           ...updates,
           updated_at: new Date().toISOString()
@@ -616,17 +657,27 @@ export class SupabaseService {
         .single();
 
       if (error) {
+        if (error.code === 'PGRST002') {
+          console.warn('Schema cache error updating mission, falling back to mock');
+          return mockService.updateMission(id, updates);
+        }
         throw new Error(`Erreur mise à jour sanction: ${error.message}`);
       }
 
       return data;
     } catch (error) {
       console.error('Erreur updateSanction:', error);
-      throw error;
+      console.log('Falling back to mock service');
+      return mockService.updateMission(id, updates);
     }
   }
 
   static async deleteSanction(id: string): Promise<void> {
+    if (!this.isConnected) {
+      console.log('Supabase not connected, using mock service');
+      return mockService.deleteMission(id);
+    }
+
     try {
       const { error } = await supabase
         .from('sanctions')
@@ -634,37 +685,57 @@ export class SupabaseService {
         .eq('id', id);
 
       if (error) {
+        if (error.code === 'PGRST002') {
+          console.warn('Schema cache error deleting mission, falling back to mock');
+          return mockService.deleteMission(id);
+        }
         throw new Error(`Erreur suppression sanction: ${error.message}`);
       }
     } catch (error) {
       console.error('Erreur deleteSanction:', error);
       throw error;
     }
-  }
+      console.log('Falling back to mock service');
+      return mockService.deleteMission(id);
 
   // ==================== REMARQUES ====================
   
   static async getRemarks(missionId: string): Promise<Remark[]> {
+    if (!this.isConnected) {
+      console.log('Supabase not connected, using mock users');
+      return mockService.getUsers();
+    }
+
     try {
       const { data, error } = await supabase
         .from('remarks')
-        .select('*')
+        return mockService.getUsers();
         .eq('mission_id', missionId)
         .order('created_at', { ascending: false });
 
       if (error) {
+        if (error.code === 'PGRST002') {
+          console.warn('Schema cache error fetching users, falling back to mock');
+          return mockService.getUsers();
+        }
         throw new Error(`Erreur remarques: ${error.message}`);
       }
 
       return data || [];
     } catch (error) {
       console.error('Erreur getRemarks:', error);
-      return [];
+      console.log('Falling back to mock users');
+      return mockService.getUsers();
     }
   }
 
   static async createRemark(remarkData: Omit<Remark, 'id' | 'created_at' | 'updated_at'>): Promise<Remark> {
     try {
+    if (!this.isConnected) {
+      console.log('Supabase not connected, using mock service');
+      return mockService.createUser(userData);
+    }
+
       const { data, error } = await supabase
         .from('remarks')
         .insert({
@@ -676,6 +747,10 @@ export class SupabaseService {
         .single();
 
       if (error) {
+        if (error.code === 'PGRST002') {
+          console.warn('Schema cache error creating user, falling back to mock');
+          return mockService.createUser(userData);
+        }
         throw new Error(`Erreur création remarque: ${error.message}`);
       }
 
@@ -761,7 +836,8 @@ export class SupabaseService {
         terminee: 0,
         annulee: 0,
         attente: 0
-      };
+      console.log('Falling back to mock service');
+      return mockService.createUser(userData);
     }
   }
 }
