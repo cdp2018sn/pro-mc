@@ -10,7 +10,7 @@ export const useLocalMissions = () => {
   const fetchMissions = async () => {
     try {
       console.log('📋 Récupération des missions depuis la base de données...');
-      const result = await db.missions.toArray();
+      const result = await db.getAllMissions();
       console.log(`✅ ${result.length} missions récupérées`);
       
       setMissions(result);
@@ -30,7 +30,7 @@ export const useLocalMissions = () => {
   const refreshMissions = async () => {
     try {
       setLoading(true);
-      const allMissions = await db.missions.toArray();
+      const allMissions = await db.getAllMissions();
       console.log('Missions après rafraîchissement:', allMissions);
       setMissions(allMissions);
       setError(null);
@@ -46,7 +46,7 @@ export const useLocalMissions = () => {
     try {
       setLoading(true);
       console.log('Ajout d\'une nouvelle mission:', missionData);
-      const newMission = await db.missions.add(missionData);
+      const newMission = await db.addMission(missionData);
       console.log('Mission ajoutée avec succès:', newMission);
       await refreshMissions();
       return newMission;
