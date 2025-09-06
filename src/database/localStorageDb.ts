@@ -257,6 +257,35 @@ class LocalStorageDB {
     }
   }
 
+  async checkUpcomingStatusChanges(): Promise<{
+    startingSoon: Mission[];
+    endingSoon: Mission[];
+  }> {
+    try {
+      const missions = this.getAllMissions();
+      const now = new Date();
+      const oneDayFromNow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+      const oneWeekFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+      const startingSoon = missions.filter(mission => {
+        if (mission.status !== 'PLANIFIEE' || mission.ignoreAutoStatusChange) return false;
+        const startDate = new Date(mission.start_date);
+        return startDate >= now && startDate <= oneDayFromNow;
+      });
+
+      const endingSoon = missions.filter(mission => {
+        if (mission.status !== 'EN_COURS' || mission.ignoreAutoStatusChange) return false;
+        const endDate = new Date(mission.end_date);
+        return endDate >= now && endDate <= oneWeekFromNow;
+      });
+
+      return { startingSoon, endingSoon };
+    } catch (error) {
+      console.error('Erreur checkUpcomingStatusChanges:', error);
+      return { startingSoon: [], endingSoon: [] };
+    }
+  }
+
   // Clear all data
   clearAllData(): void {
     const tables = ['users', 'missions', 'documents', 'findings', 'sanctions', 'remarks'];
