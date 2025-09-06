@@ -96,18 +96,18 @@ class LocalStorageDB {
   }
 
   // Missions
-  getMissions(): Mission[] {
+  getAllMissions(): Mission[] {
     return this.getData<Mission>('missions');
   }
 
   addMission(mission: Mission): void {
-    const missions = this.getMissions();
+    const missions = this.getAllMissions();
     missions.push(mission);
     this.setData('missions', missions);
   }
 
   updateMission(id: string, updates: Partial<Mission>): void {
-    const missions = this.getMissions();
+    const missions = this.getAllMissions();
     const index = missions.findIndex(m => m.id === id);
     if (index !== -1) {
       missions[index] = { ...missions[index], ...updates };
@@ -116,7 +116,7 @@ class LocalStorageDB {
   }
 
   deleteMission(id: string): void {
-    const missions = this.getMissions().filter(m => m.id !== id);
+    const missions = this.getAllMissions().filter(m => m.id !== id);
     this.setData('missions', missions);
   }
 
@@ -192,7 +192,7 @@ class LocalStorageDB {
   }> {
     const local = {
       users: this.getUsers().length,
-      missions: this.getMissions().length,
+      missions: this.getAllMissions().length,
       documents: this.getDocuments().length,
       findings: this.getFindings().length,
       sanctions: this.getSanctions().length,
@@ -230,7 +230,7 @@ class LocalStorageDB {
       console.log(`Synchronisation de ${users.length} utilisateurs...`);
       
       // Sync missions
-      const missions = this.getMissions();
+      const missions = this.getAllMissions();
       console.log(`Synchronisation de ${missions.length} missions...`);
       
       // Sync documents
