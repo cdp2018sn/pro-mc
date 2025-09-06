@@ -202,7 +202,12 @@ class AuthService {
             user_password: password
           });
 
-        if (!authError && authResult && authResult.length > 0) {
+        if (authError) {
+          console.log('⚠️ Erreur authentification Supabase:', authError.message);
+          throw new Error('Erreur d\'authentification Supabase');
+        }
+
+        if (authResult && authResult.length > 0) {
           const userData = authResult[0];
           console.log('✅ Authentification Supabase réussie pour:', userData.user_email);
           
