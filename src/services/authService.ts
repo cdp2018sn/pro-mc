@@ -190,12 +190,12 @@ class AuthService {
     
     const { email, password } = credentials;
 
-    // NOUVELLE APPROCHE : Authentification directe via Supabase
+    // Authentification via Supabase avec fonction RPC sécurisée
     if (this.isSupabaseConnected) {
       try {
-        console.log('🔐 Authentification globale via Supabase...');
+        console.log('🔐 Authentification via Supabase RPC...');
         
-        // Utiliser la fonction d'authentification globale
+        // Utiliser la fonction RPC pour authentification sécurisée
         const { data: authResult, error: authError } = await supabase
           .rpc('authenticate_user', {
             user_email: email,
@@ -204,7 +204,7 @@ class AuthService {
 
         if (!authError && authResult && authResult.length > 0) {
           const userData = authResult[0];
-          console.log('✅ Authentification globale réussie');
+          console.log('✅ Authentification Supabase réussie pour:', userData.user_email);
           
           const user: User = {
             id: userData.user_id,
@@ -219,32 +219,30 @@ class AuthService {
             last_login: new Date().toISOString()
           };
 
-          // Créer une session globale via Supabase
-          const { data: sessionData, error: sessionError } = await supabase
-            .rpc('create_global_session', {
-              user_email: email
-            });
+          // Créer une session locale avec marqueur global
+          const globalSession = {
+            user,
+            expiresAt: Date.now() + 24 * 60 * 60 * 1000,
+            isGlobal: true,
+            supabaseAuth: true
+          };
 
-          if (!sessionError && sessionData && sessionData.length > 0) {
-            const session = sessionData[0];
-            
-            // Stocker la session globale
-            const globalSession = {
-              user,
-              sessionId: session.session_id,
-              expiresAt: new Date(session.expires_at).getTime(),
-              isGlobal: true
-            };
-
-            localStorage.setItem('session', btoa(JSON.stringify(globalSession)));
-            console.log('✅ Session globale créée pour:', user.email);
-            return user;
+          localStorage.setItem('session', btoa(JSON.stringify(globalSession)));
+          console.log('✅ Session globale créée pour:', user.email);
+          
+          // Mettre à jour la dernière connexion
+          try {
+            await SupabaseService.updateUserLastLogin(user.id);
+          } catch (updateError) {
+            console.log('⚠️ Erreur mise à jour dernière connexion:', updateError);
           }
+          
+          return user;
         }
         
-        console.log('⚠️ Authentification Supabase échouée, fallback vers local');
+        console.log('⚠️ Authentification Supabase échouée, essai local...');
       } catch (error) {
-        console.log('⚠️ Erreur authentification globale, fallback vers local:', error);
+        console.log('⚠️ Erreur authentification Supabase, fallback local:', error);
       }
     }
 
@@ -393,29 +391,18 @@ class AuthService {
     this.users.push(newUser);
     this.saveUsers();
 
-    // PRIORITÉ : Sauvegarder dans Supabase pour accès global
+    // Créer l'utilisateur dans Supabase avec hachage sécurisé
     if (this.isSupabaseConnected) {
       try {
-        console.log('🌍 Création utilisateur global dans Supabase...');
+        console.log('🌍 Création utilisateur dans Supabase avec RPC...');
         
-        // Créer directement dans la table users pour accès global
-        await SupabaseService.createUser({
-          id: newUser.id,
-          email: newUser.email,
-          name: newUser.name,
-          role: newUser.role,
-          permissions: newUser.permissions,
-          isActive: newUser.isActive,
-          department: newUser.department,
-          phone: newUser.phone,
-          password: userData.password
-        });
+        // Utiliser la fonction RPC pour créer l'utilisateur avec hachage sécurisé
+        await SupabaseService.createUserSecure(userData);
         
-        console.log('✅ Utilisateur global créé dans Supabase:', newUser.email);
+        console.log('✅ Utilisateur créé dans Supabase avec accès global:', newUser.email);
         console.log('🌍 Cet utilisateur est maintenant accessible depuis toutes les machines');
       } catch (error) {
-        console.log('❌ ERREUR CRITIQUE - Utilisateur non accessible globalement:', error);
-        throw new Error('Impossible de créer un utilisateur global. Vérifiez Supabase.');
+        console.log('⚠️ Erreur création Supabase (utilisateur créé localement):', error);
       }
     }
 

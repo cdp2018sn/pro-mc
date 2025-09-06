@@ -92,53 +92,67 @@ export class SupabaseService {
 
   static async createUser(userData: CreateUserData & { id?: string; permissions?: any }): Promise<User> {
     try {
-      console.log('🌍 CRÉATION UTILISATEUR GLOBAL DANS SUPABASE:', userData.email);
+      console.log('🌍 CRÉATION UTILISATEUR DANS SUPABASE:', userData.email);
       
-      // Créer directement dans la table users pour accès global immédiat
-      const userId = userData.id || crypto.randomUUID();
-      
-      const userToCreate = {
-        id: userId,
-        email: userData.email,
-        name: userData.name,
-        role: userData.role,
-        department: userData.department || '',
-        phone: userData.phone || '',
-        is_active: true,
-        permissions: userData.permissions || {},
-        password_hash: userData.password ? btoa(userData.password + 'salt') : null,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
-
+      // Utiliser la fonction RPC pour créer l'utilisateur avec hachage sécurisé
       const { data, error } = await supabase
-        .from('users')
-        .insert(userToCreate)
-        .select()
-        .single();
+        .rpc('hash_and_insert_user', {
+          user_email: userData.email,
+          user_name: userData.name,
+          user_role: userData.role,
+          user_password: userData.password,
+          user_department: userData.department || '',
+          user_phone: userData.phone || ''
+        });
 
       if (error) {
-        console.log('❌ ERREUR CRÉATION UTILISATEUR GLOBAL:', error.message);
+        console.log('❌ ERREUR CRÉATION UTILISATEUR:', error.message);
         throw new Error(`Erreur création utilisateur: ${error.message}`);
       }
 
-      console.log('✅ UTILISATEUR GLOBAL CRÉÉ - ACCESSIBLE PARTOUT:', data.email);
+      if (!data || data.length === 0) {
+        throw new Error('Aucune donnée retournée par la fonction de création');
+      }
+
+      const userData_result = data[0];
+      console.log('✅ UTILISATEUR CRÉÉ - ACCESSIBLE PARTOUT:', userData_result.user_email);
       
       return {
-        id: data.id,
-        email: data.email,
-        name: data.name,
-        role: data.role,
-        permissions: data.permissions,
-        isActive: data.is_active,
-        department: data.department,
-        phone: data.phone,
-        created_at: data.created_at,
-        last_login: data.last_login
+        id: userData_result.user_id,
+        email: userData_result.user_email,
+        name: userData_result.user_name,
+        role: userData_result.user_role,
+        permissions: {},
+        isActive: userData_result.is_active,
+        department: userData.department || '',
+        phone: userData.phone || '',
+        created_at: new Date().toISOString()
       };
     } catch (error) {
       console.error('Erreur createUser:', error);
       throw error;
+    }
+  }
+
+  static async createUserSecure(userData: CreateUserData): Promise<User> {
+    return this.createUser(userData);
+  }
+
+  static async updateUserLastLogin(userId: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('users')
+        .update({ 
+          last_login: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', userId);
+
+      if (error) {
+        console.log('⚠️ Erreur mise à jour dernière connexion:', error.message);
+      }
+    } catch (error) {
+      console.log('⚠️ Erreur updateUserLastLogin:', error);
     }
   }
 
@@ -156,24 +170,28 @@ export class SupabaseService {
         .from('users')
         .update(updateData)
         .eq('id', id)
-        .select()
-        .single();
+        .select();
 
       if (error) {
         throw new Error(`Erreur mise à jour utilisateur: ${error.message}`);
       }
 
+      if (!data || data.length === 0) {
+        throw new Error('Utilisateur non trouvé');
+      }
+
+      const userData = data[0];
       return {
-        id: data.id,
-        email: data.email,
-        name: data.name,
-        role: data.role,
-        permissions: data.permissions,
-        isActive: data.is_active,
-        department: data.department,
-        phone: data.phone,
-        created_at: data.created_at,
-        last_login: data.last_login
+        id: userData.id,
+        email: userData.email,
+        name: userData.name,
+        role: userData.role,
+        permissions: userData.permissions,
+        isActive: userData.is_active,
+        department: userData.department,
+        phone: userData.phone,
+        created_at: userData.created_at,
+        last_login: userData.last_login
       };
     } catch (error) {
       console.error('Erreur updateUser:', error);
