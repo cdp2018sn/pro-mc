@@ -13,14 +13,14 @@ export class SupabaseService {
         .limit(1);
       
       if (error) {
-        console.error('❌ Erreur de connexion Supabase:', error);
+        console.log('⚠️ Supabase non disponible:', error.message);
         return false;
       }
       
       console.log('✅ Connexion Supabase réussie');
       return true;
     } catch (error) {
-      console.error('❌ Erreur de connexion Supabase:', error);
+      console.log('⚠️ Supabase non disponible:', error);
       return false;
     }
   }
@@ -35,8 +35,7 @@ export class SupabaseService {
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('Erreur lors de la récupération des utilisateurs:', error);
-        throw new Error(`Erreur lors de la récupération des utilisateurs: ${error.message}`);
+        throw new Error(`Erreur utilisateurs: ${error.message}`);
       }
 
       return (data || []).map(user => ({
@@ -52,7 +51,7 @@ export class SupabaseService {
         last_login: user.last_login
       }));
     } catch (error) {
-      console.error('Erreur dans getUsers:', error);
+      console.error('Erreur getUsers:', error);
       throw error;
     }
   }
@@ -66,8 +65,8 @@ export class SupabaseService {
         .single();
 
       if (error) {
-        if (error.code === 'PGRST116') return null; // Pas trouvé
-        throw new Error(`Erreur lors de la récupération de l'utilisateur: ${error.message}`);
+        if (error.code === 'PGRST116') return null;
+        throw new Error(`Erreur utilisateur: ${error.message}`);
       }
 
       return {
@@ -83,7 +82,7 @@ export class SupabaseService {
         last_login: data.last_login
       };
     } catch (error) {
-      console.error('Erreur dans getUserByEmail:', error);
+      console.error('Erreur getUserByEmail:', error);
       throw error;
     }
   }
@@ -110,7 +109,7 @@ export class SupabaseService {
         .single();
 
       if (error) {
-        throw new Error(`Erreur lors de la création de l'utilisateur: ${error.message}`);
+        throw new Error(`Erreur création utilisateur: ${error.message}`);
       }
 
       return {
@@ -126,7 +125,7 @@ export class SupabaseService {
         last_login: data.last_login
       };
     } catch (error) {
-      console.error('Erreur dans createUser:', error);
+      console.error('Erreur createUser:', error);
       throw error;
     }
   }
@@ -139,7 +138,6 @@ export class SupabaseService {
         updated_at: new Date().toISOString()
       };
 
-      // Supprimer isActive car on utilise is_active
       delete (updateData as any).isActive;
 
       const { data, error } = await supabase
@@ -150,7 +148,7 @@ export class SupabaseService {
         .single();
 
       if (error) {
-        throw new Error(`Erreur lors de la mise à jour de l'utilisateur: ${error.message}`);
+        throw new Error(`Erreur mise à jour utilisateur: ${error.message}`);
       }
 
       return {
@@ -166,7 +164,7 @@ export class SupabaseService {
         last_login: data.last_login
       };
     } catch (error) {
-      console.error('Erreur dans updateUser:', error);
+      console.error('Erreur updateUser:', error);
       throw error;
     }
   }
@@ -179,10 +177,10 @@ export class SupabaseService {
         .eq('id', id);
 
       if (error) {
-        throw new Error(`Erreur lors de la suppression de l'utilisateur: ${error.message}`);
+        throw new Error(`Erreur suppression utilisateur: ${error.message}`);
       }
     } catch (error) {
-      console.error('Erreur dans deleteUser:', error);
+      console.error('Erreur deleteUser:', error);
       throw error;
     }
   }
@@ -191,18 +189,18 @@ export class SupabaseService {
   
   static async getMissions(): Promise<Mission[]> {
     try {
-      const { data, error } = await supabase
+      // Récupérer d'abord les missions
+      const { data: missionsData, error: missionsError } = await supabase
         .from('missions')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error('Erreur lors de la récupération des missions:', error);
-        throw new Error(`Erreur lors de la récupération des missions: ${error.message}`);
+      if (missionsError) {
+        throw new Error(`Erreur missions: ${missionsError.message}`);
       }
 
-      // Fetch related data separately for each mission
-      const missions = await Promise.all((data || []).map(async mission => {
+      // Pour chaque mission, récupérer les données associées séparément
+      const missions = await Promise.all((missionsData || []).map(async mission => {
         const [documents, findings, sanctions, remarks] = await Promise.all([
           this.getDocuments(mission.id).catch(() => []),
           this.getFindings(mission.id).catch(() => []),
@@ -211,34 +209,34 @@ export class SupabaseService {
         ]);
 
         return {
-        id: mission.id,
-        reference: mission.reference,
-        title: mission.title,
-        description: mission.description,
-        type_mission: mission.type_mission,
-        organization: mission.organization,
-        address: mission.address,
-        start_date: mission.start_date,
-        end_date: mission.end_date,
-        status: mission.status,
-        motif_controle: mission.motif_controle,
-        decision_numero: mission.decision_numero,
-        date_decision: mission.date_decision,
-        team_members: mission.team_members || [],
-        objectives: mission.objectives || [],
-        findings,
-        remarks,
-        sanctions,
-        documents,
-        created_at: mission.created_at,
-        updated_at: mission.updated_at,
-        ignoreAutoStatusChange: mission.ignore_auto_status_change
+          id: mission.id,
+          reference: mission.reference,
+          title: mission.title,
+          description: mission.description,
+          type_mission: mission.type_mission,
+          organization: mission.organization,
+          address: mission.address,
+          start_date: mission.start_date,
+          end_date: mission.end_date,
+          status: mission.status,
+          motif_controle: mission.motif_controle,
+          decision_numero: mission.decision_numero,
+          date_decision: mission.date_decision,
+          team_members: mission.team_members || [],
+          objectives: mission.objectives || [],
+          findings,
+          remarks,
+          sanctions,
+          documents,
+          created_at: mission.created_at,
+          updated_at: mission.updated_at,
+          ignoreAutoStatusChange: mission.ignore_auto_status_change
         };
       }));
 
       return missions;
     } catch (error) {
-      console.error('Erreur dans getMissions:', error);
+      console.error('Erreur getMissions:', error);
       throw error;
     }
   }
@@ -272,7 +270,7 @@ export class SupabaseService {
         .single();
 
       if (error) {
-        throw new Error(`Erreur lors de la création de la mission: ${error.message}`);
+        throw new Error(`Erreur création mission: ${error.message}`);
       }
 
       return {
@@ -300,7 +298,7 @@ export class SupabaseService {
         ignoreAutoStatusChange: data.ignore_auto_status_change
       };
     } catch (error) {
-      console.error('Erreur dans createMission:', error);
+      console.error('Erreur createMission:', error);
       throw error;
     }
   }
@@ -328,13 +326,12 @@ export class SupabaseService {
         .single();
 
       if (error) {
-        throw new Error(`Erreur lors de la mise à jour de la mission: ${error.message}`);
+        throw new Error(`Erreur mise à jour mission: ${error.message}`);
       }
 
-      // Récupérer la mission complète avec les relations
       return await this.getMissionById(id) || data;
     } catch (error) {
-      console.error('Erreur dans updateMission:', error);
+      console.error('Erreur updateMission:', error);
       throw error;
     }
   }
@@ -349,10 +346,10 @@ export class SupabaseService {
 
       if (error) {
         if (error.code === 'PGRST116') return null;
-        throw new Error(`Erreur lors de la récupération de la mission: ${error.message}`);
+        throw new Error(`Erreur récupération mission: ${error.message}`);
       }
 
-      // Fetch related data separately
+      // Récupérer les données associées séparément
       const [documents, findings, sanctions, remarks] = await Promise.all([
         this.getDocuments(id).catch(() => []),
         this.getFindings(id).catch(() => []),
@@ -385,7 +382,7 @@ export class SupabaseService {
         ignoreAutoStatusChange: data.ignore_auto_status_change
       };
     } catch (error) {
-      console.error('Erreur dans getMissionById:', error);
+      console.error('Erreur getMissionById:', error);
       throw error;
     }
   }
@@ -398,10 +395,10 @@ export class SupabaseService {
         .eq('id', id);
 
       if (error) {
-        throw new Error(`Erreur lors de la suppression de la mission: ${error.message}`);
+        throw new Error(`Erreur suppression mission: ${error.message}`);
       }
     } catch (error) {
-      console.error('Erreur dans deleteMission:', error);
+      console.error('Erreur deleteMission:', error);
       throw error;
     }
   }
@@ -417,13 +414,13 @@ export class SupabaseService {
         .order('created_at', { ascending: false });
 
       if (error) {
-        throw new Error(`Erreur lors de la récupération des documents: ${error.message}`);
+        throw new Error(`Erreur documents: ${error.message}`);
       }
 
       return data || [];
     } catch (error) {
-      console.error('Erreur dans getDocuments:', error);
-      throw error;
+      console.error('Erreur getDocuments:', error);
+      return [];
     }
   }
 
@@ -439,12 +436,12 @@ export class SupabaseService {
         .single();
 
       if (error) {
-        throw new Error(`Erreur lors de la création du document: ${error.message}`);
+        throw new Error(`Erreur création document: ${error.message}`);
       }
 
       return data;
     } catch (error) {
-      console.error('Erreur dans createDocument:', error);
+      console.error('Erreur createDocument:', error);
       throw error;
     }
   }
@@ -457,10 +454,10 @@ export class SupabaseService {
         .eq('id', id);
 
       if (error) {
-        throw new Error(`Erreur lors de la suppression du document: ${error.message}`);
+        throw new Error(`Erreur suppression document: ${error.message}`);
       }
     } catch (error) {
-      console.error('Erreur dans deleteDocument:', error);
+      console.error('Erreur deleteDocument:', error);
       throw error;
     }
   }
@@ -476,13 +473,13 @@ export class SupabaseService {
         .order('created_at', { ascending: false });
 
       if (error) {
-        throw new Error(`Erreur lors de la récupération des constatations: ${error.message}`);
+        throw new Error(`Erreur constatations: ${error.message}`);
       }
 
       return data || [];
     } catch (error) {
-      console.error('Erreur dans getFindings:', error);
-      throw error;
+      console.error('Erreur getFindings:', error);
+      return [];
     }
   }
 
@@ -499,12 +496,12 @@ export class SupabaseService {
         .single();
 
       if (error) {
-        throw new Error(`Erreur lors de la création de la constatation: ${error.message}`);
+        throw new Error(`Erreur création constatation: ${error.message}`);
       }
 
       return data;
     } catch (error) {
-      console.error('Erreur dans createFinding:', error);
+      console.error('Erreur createFinding:', error);
       throw error;
     }
   }
@@ -520,13 +517,13 @@ export class SupabaseService {
         .order('created_at', { ascending: false });
 
       if (error) {
-        throw new Error(`Erreur lors de la récupération des sanctions: ${error.message}`);
+        throw new Error(`Erreur sanctions: ${error.message}`);
       }
 
       return data || [];
     } catch (error) {
-      console.error('Erreur dans getSanctions:', error);
-      throw error;
+      console.error('Erreur getSanctions:', error);
+      return [];
     }
   }
 
@@ -543,12 +540,12 @@ export class SupabaseService {
         .single();
 
       if (error) {
-        throw new Error(`Erreur lors de la création de la sanction: ${error.message}`);
+        throw new Error(`Erreur création sanction: ${error.message}`);
       }
 
       return data;
     } catch (error) {
-      console.error('Erreur dans createSanction:', error);
+      console.error('Erreur createSanction:', error);
       throw error;
     }
   }
@@ -566,12 +563,12 @@ export class SupabaseService {
         .single();
 
       if (error) {
-        throw new Error(`Erreur lors de la mise à jour de la sanction: ${error.message}`);
+        throw new Error(`Erreur mise à jour sanction: ${error.message}`);
       }
 
       return data;
     } catch (error) {
-      console.error('Erreur dans updateSanction:', error);
+      console.error('Erreur updateSanction:', error);
       throw error;
     }
   }
@@ -584,10 +581,10 @@ export class SupabaseService {
         .eq('id', id);
 
       if (error) {
-        throw new Error(`Erreur lors de la suppression de la sanction: ${error.message}`);
+        throw new Error(`Erreur suppression sanction: ${error.message}`);
       }
     } catch (error) {
-      console.error('Erreur dans deleteSanction:', error);
+      console.error('Erreur deleteSanction:', error);
       throw error;
     }
   }
@@ -603,13 +600,13 @@ export class SupabaseService {
         .order('created_at', { ascending: false });
 
       if (error) {
-        throw new Error(`Erreur lors de la récupération des remarques: ${error.message}`);
+        throw new Error(`Erreur remarques: ${error.message}`);
       }
 
       return data || [];
     } catch (error) {
-      console.error('Erreur dans getRemarks:', error);
-      throw error;
+      console.error('Erreur getRemarks:', error);
+      return [];
     }
   }
 
@@ -626,12 +623,12 @@ export class SupabaseService {
         .single();
 
       if (error) {
-        throw new Error(`Erreur lors de la création de la remarque: ${error.message}`);
+        throw new Error(`Erreur création remarque: ${error.message}`);
       }
 
       return data;
     } catch (error) {
-      console.error('Erreur dans createRemark:', error);
+      console.error('Erreur createRemark:', error);
       throw error;
     }
   }
@@ -640,7 +637,7 @@ export class SupabaseService {
   
   static async updateMissionStatuses(): Promise<{ updated: number; started: number; completed: number }> {
     try {
-      const now = new Date().toISOString().split('T')[0]; // Format YYYY-MM-DD
+      const now = new Date().toISOString().split('T')[0];
       
       // Missions planifiées qui doivent passer en cours
       const { data: startedMissions, error: startError } = await supabase
@@ -655,7 +652,7 @@ export class SupabaseService {
         .select('id');
 
       if (startError) {
-        console.error('Erreur lors de la mise à jour des missions planifiées:', startError);
+        console.error('Erreur mise à jour planifiées:', startError);
       }
 
       // Missions en cours qui doivent se terminer
@@ -671,7 +668,7 @@ export class SupabaseService {
         .select('id');
 
       if (completeError) {
-        console.error('Erreur lors de la mise à jour des missions en cours:', completeError);
+        console.error('Erreur mise à jour en cours:', completeError);
       }
 
       const started = startedMissions?.length || 0;
@@ -683,7 +680,7 @@ export class SupabaseService {
         completed
       };
     } catch (error) {
-      console.error('Erreur dans updateMissionStatuses:', error);
+      console.error('Erreur updateMissionStatuses:', error);
       throw error;
     }
   }

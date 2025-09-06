@@ -3,35 +3,36 @@ import { SupabaseService } from '../services/supabaseService';
 
 // Base de données unifiée avec Supabase comme source principale et localStorage comme fallback
 export class UnifiedDatabase {
-  private useSupabase = true;
+  private useSupabase = false;
   private isInitialized = false;
+  private initPromise: Promise<void> | null = null;
 
   constructor() {
-    this.initialize();
+    this.initPromise = this.initialize();
   }
 
   private async initialize() {
     try {
+      console.log('🔧 Initialisation de la base de données...');
       this.useSupabase = await SupabaseService.testConnection();
       this.isInitialized = true;
       
       if (this.useSupabase) {
         console.log('✅ Base de données Supabase connectée');
-        // Synchroniser les données locales vers Supabase si nécessaire
         await this.syncLocalToSupabase();
       } else {
-        console.log('⚠️ Fallback vers localStorage');
+        console.log('⚠️ Mode localStorage - Supabase non disponible');
       }
     } catch (error) {
-      console.error('Erreur lors de l\'initialisation:', error);
+      console.error('Erreur initialisation:', error);
       this.useSupabase = false;
       this.isInitialized = true;
     }
   }
 
   private async ensureInitialized() {
-    if (!this.isInitialized) {
-      await this.initialize();
+    if (!this.isInitialized && this.initPromise) {
+      await this.initPromise;
     }
   }
 
@@ -43,7 +44,6 @@ export class UnifiedDatabase {
     if (this.useSupabase) {
       try {
         const missions = await SupabaseService.getMissions();
-        // Sauvegarder en localStorage pour le cache
         this.saveMissionsToLocalStorage(missions);
         return missions;
       } catch (error) {
@@ -61,7 +61,6 @@ export class UnifiedDatabase {
     if (this.useSupabase) {
       try {
         const newMission = await SupabaseService.createMission(mission);
-        // Aussi sauvegarder en localStorage
         this.addMissionToLocalStorage(newMission);
         return newMission;
       } catch (error) {
@@ -79,7 +78,6 @@ export class UnifiedDatabase {
     if (this.useSupabase) {
       try {
         await SupabaseService.updateMission(id, updates);
-        // Aussi mettre à jour en localStorage
         this.updateMissionInLocalStorage(id, updates);
         return;
       } catch (error) {
@@ -97,7 +95,6 @@ export class UnifiedDatabase {
     if (this.useSupabase) {
       try {
         await SupabaseService.deleteMission(id);
-        // Aussi supprimer de localStorage
         this.deleteMissionFromLocalStorage(id);
         return;
       } catch (error) {
@@ -118,7 +115,7 @@ export class UnifiedDatabase {
       try {
         return await SupabaseService.getDocuments(missionId);
       } catch (error) {
-        console.error('Erreur Supabase, fallback localStorage:', error);
+        console.error('Erreur Supabase documents, fallback localStorage:', error);
         this.useSupabase = false;
       }
     }
@@ -136,7 +133,7 @@ export class UnifiedDatabase {
         await SupabaseService.createDocument(documentData);
         return;
       } catch (error) {
-        console.error('Erreur Supabase, fallback localStorage:', error);
+        console.error('Erreur Supabase document, fallback localStorage:', error);
         this.useSupabase = false;
       }
     }
@@ -152,7 +149,7 @@ export class UnifiedDatabase {
         await SupabaseService.deleteDocument(documentId);
         return;
       } catch (error) {
-        console.error('Erreur Supabase, fallback localStorage:', error);
+        console.error('Erreur Supabase suppression document, fallback localStorage:', error);
         this.useSupabase = false;
       }
     }
@@ -169,7 +166,7 @@ export class UnifiedDatabase {
       try {
         return await SupabaseService.getFindings(missionId);
       } catch (error) {
-        console.error('Erreur Supabase, fallback localStorage:', error);
+        console.error('Erreur Supabase findings, fallback localStorage:', error);
         this.useSupabase = false;
       }
     }
@@ -204,7 +201,7 @@ export class UnifiedDatabase {
         await SupabaseService.createFinding(fullFindingData);
         return;
       } catch (error) {
-        console.error('Erreur Supabase, fallback localStorage:', error);
+        console.error('Erreur Supabase finding, fallback localStorage:', error);
         this.useSupabase = false;
       }
     }
@@ -221,7 +218,7 @@ export class UnifiedDatabase {
       try {
         return await SupabaseService.getSanctions(missionId);
       } catch (error) {
-        console.error('Erreur Supabase, fallback localStorage:', error);
+        console.error('Erreur Supabase sanctions, fallback localStorage:', error);
         this.useSupabase = false;
       }
     }
@@ -253,7 +250,7 @@ export class UnifiedDatabase {
         await SupabaseService.createSanction(fullSanctionData);
         return;
       } catch (error) {
-        console.error('Erreur Supabase, fallback localStorage:', error);
+        console.error('Erreur Supabase sanction, fallback localStorage:', error);
         this.useSupabase = false;
       }
     }
@@ -269,7 +266,7 @@ export class UnifiedDatabase {
         await SupabaseService.updateSanction(sanctionId, updates);
         return;
       } catch (error) {
-        console.error('Erreur Supabase, fallback localStorage:', error);
+        console.error('Erreur Supabase mise à jour sanction, fallback localStorage:', error);
         this.useSupabase = false;
       }
     }
@@ -285,7 +282,7 @@ export class UnifiedDatabase {
         await SupabaseService.deleteSanction(sanctionId);
         return;
       } catch (error) {
-        console.error('Erreur Supabase, fallback localStorage:', error);
+        console.error('Erreur Supabase suppression sanction, fallback localStorage:', error);
         this.useSupabase = false;
       }
     }
@@ -302,7 +299,7 @@ export class UnifiedDatabase {
       try {
         return await SupabaseService.getRemarks(missionId);
       } catch (error) {
-        console.error('Erreur Supabase, fallback localStorage:', error);
+        console.error('Erreur Supabase remarques, fallback localStorage:', error);
         this.useSupabase = false;
       }
     }
@@ -324,7 +321,7 @@ export class UnifiedDatabase {
         await SupabaseService.createRemark(remarkData);
         return;
       } catch (error) {
-        console.error('Erreur Supabase, fallback localStorage:', error);
+        console.error('Erreur Supabase remarque, fallback localStorage:', error);
         this.useSupabase = false;
       }
     }
@@ -341,7 +338,7 @@ export class UnifiedDatabase {
       try {
         return await SupabaseService.updateMissionStatuses();
       } catch (error) {
-        console.error('Erreur Supabase, fallback localStorage:', error);
+        console.error('Erreur Supabase statuts, fallback localStorage:', error);
         this.useSupabase = false;
       }
     }
@@ -384,7 +381,7 @@ export class UnifiedDatabase {
       const stored = localStorage.getItem('cdp_missions');
       return stored ? JSON.parse(stored) : [];
     } catch (error) {
-      console.error('Erreur localStorage:', error);
+      console.error('Erreur localStorage missions:', error);
       return [];
     }
   }
@@ -404,7 +401,11 @@ export class UnifiedDatabase {
       ...missionData,
       id: (missionData as Mission).id || `mission-${Date.now()}`,
       created_at: (missionData as Mission).created_at || new Date().toISOString(),
-      updated_at: new Date().toISOString()
+      updated_at: new Date().toISOString(),
+      findings: (missionData as Mission).findings || [],
+      remarks: (missionData as Mission).remarks || [],
+      sanctions: (missionData as Mission).sanctions || [],
+      documents: (missionData as Mission).documents || []
     };
     
     missions.push(newMission);
@@ -593,14 +594,12 @@ export class UnifiedDatabase {
         
         for (const mission of localMissions) {
           try {
-            // Vérifier si la mission existe déjà
             const existing = await SupabaseService.getMissionById(mission.id);
             if (!existing) {
               await SupabaseService.createMission(mission);
               console.log(`✅ Mission ${mission.reference} synchronisée`);
             }
           } catch (error) {
-            // Ignorer les erreurs de doublons
             if (!error.message.includes('duplicate')) {
               console.error(`❌ Erreur sync mission ${mission.reference}:`, error);
             }
@@ -608,7 +607,7 @@ export class UnifiedDatabase {
         }
       }
     } catch (error) {
-      console.error('❌ Erreur lors de la synchronisation:', error);
+      console.error('❌ Erreur synchronisation:', error);
     }
   }
 
@@ -621,17 +620,14 @@ export class UnifiedDatabase {
   }
 
   async addReponseSuivi(missionId: string, reponse: any): Promise<void> {
-    // Pour l'instant, stocker dans les remarques
     await this.addRemark(missionId, `Réponse du ${reponse.date_reponse}: ${reponse.contenu}`);
   }
 
-  // Méthode pour forcer la reconnexion Supabase
   async reconnectSupabase(): Promise<boolean> {
     this.useSupabase = await SupabaseService.testConnection();
     return this.useSupabase;
   }
 
-  // Obtenir le statut de la connexion
   getConnectionStatus(): 'supabase' | 'localStorage' {
     return this.useSupabase ? 'supabase' : 'localStorage';
   }
