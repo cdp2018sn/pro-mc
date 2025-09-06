@@ -16,21 +16,21 @@ export class UnifiedDatabase {
     try {
       console.log('🔧 Initialisation de la base de données unifiée...');
       
-      // Forcer l'utilisation de Supabase en priorité
+      // FORCER la connexion Supabase
       console.log('🔍 Test de connexion Supabase...');
       this.useSupabase = await SupabaseService.testConnection();
-      
-      // Initialiser le service de synchronisation globale
-      await GlobalSyncService.initialize();
       
       this.isInitialized = true;
       
       if (this.useSupabase) {
-        console.log('✅ Base de données Supabase connectée');
+        console.log('✅ SUPABASE CONNECTÉ - SYNCHRONISATION ACTIVÉE');
         console.log('🔄 Synchronisation avec Supabase activée');
         await this.syncLocalToSupabase();
+        
+        // Forcer la synchronisation des utilisateurs existants
+        await this.forceUserSync();
       } else {
-        console.log('⚠️ Mode localStorage - Supabase non disponible');
+        console.log('❌ SUPABASE NON DISPONIBLE - MODE LOCAL UNIQUEMENT');
         console.log('💡 Les données seront synchronisées dès que Supabase sera disponible');
         this.ensureLocalStorageStructure();
       }
@@ -90,26 +90,26 @@ export class UnifiedDatabase {
   async addMission(mission: Omit<Mission, 'id'>): Promise<Mission> {
     await this.ensureInitialized();
     
+    console.log('🔄 AJOUT MISSION - Mode:', this.useSupabase ? 'SUPABASE' : 'LOCAL');
+    
     if (this.useSupabase) {
       try {
-        console.log('📡 Ajout mission dans Supabase...');
+        console.log('📡 AJOUT MISSION DANS SUPABASE...');
         const newMission = await SupabaseService.createMission(mission);
         this.addMissionToLocalStorage(newMission);
         
-        // Synchronisation globale
-        await GlobalSyncService.syncMission('create', newMission);
-        
-        console.log('✅ Mission ajoutée dans Supabase et localStorage');
+        console.log('✅ MISSION AJOUTÉE DANS SUPABASE ET SYNCHRONISÉE');
+        console.log('📋 Référence:', newMission.reference);
         return newMission;
       } catch (error) {
-        console.error('❌ Erreur Supabase, fallback localStorage:', error);
+        console.error('❌ ERREUR SUPABASE - FALLBACK LOCAL:', error);
         this.useSupabase = false;
       }
     }
     
-    console.log('💾 Ajout mission dans localStorage...');
+    console.log('💾 AJOUT MISSION EN LOCAL UNIQUEMENT');
     const newMission = this.addMissionToLocalStorage(mission);
-    console.log('✅ Mission ajoutée dans localStorage');
+    console.log('⚠️ MISSION NON SYNCHRONISÉE AVEC SUPABASE');
     return newMission;
   }
 
@@ -692,31 +692,104 @@ export class UnifiedDatabase {
     return { updated: started + completed, started, completed };
   }
 
+  // ==================== SYNCHRONISATION FORCÉE ====================
+  
+  private async forceUserSync(): Promise<void> {
+    try {
+      console.log('🔄 SYNCHRONISATION FORCÉE DES UTILISATEURS...');
+      
+      // Récupérer les utilisateurs locaux
+      const localUsers = JSON.parse(localStorage.getItem('cdp_users') || '[]');
+      console.log(`📊 ${localUsers.length} utilisateurs locaux trouvés`);
+      
+      for (const localUser of localUsers) {
+        try {
+          // Vérifier si l'utilisateur existe déjà dans Supabase
+          const existingUser = await SupabaseService.getUserByEmail(localUser.email);
+          
+          if (!existingUser) {
+            console.log(`🔄 Synchronisation utilisateur: ${localUser.email}`);
+            await SupabaseService.createUser({
+              id: localUser.id,
+              email: localUser.email,
+              name: localUser.name,
+              role: localUser.role,
+              permissions: localUser.permissions,
+              isActive: localUser.isActive,
+              department: localUser.department,
+              phone: localUser.phone,
+              password: 'Passer' // Mot de passe par défaut
+            });
+            console.log(`✅ Utilisateur synchronisé: ${localUser.email}`);
+          } else {
+            console.log(`ℹ️ Utilisateur déjà existant: ${localUser.email}`);
+          }
+        } catch (error) {
+          console.error(`❌ Erreur sync utilisateur ${localUser.email}:`, error);
+        }
+      }
+      
+      console.log('✅ SYNCHRONISATION UTILISATEURS TERMINÉE');
+    } catch (error) {
+      console.error('❌ Erreur synchronisation forcée:', error);
+    }
+  }
+  
+  async forceGlobalSync(): Promise<boolean> {
+    try {
+      console.log('🔄 FORÇAGE DE LA SYNCHRONISATION GLOBALE...');
+      
+      // Reconnecter à Supabase
+      this.useSupabase = await SupabaseService.testConnection();
+      
+      if (!this.useSupabase) {
+        console.log('❌ Impossible de se connecter à Supabase');
+        return false;
+      }
+      
+      console.log('✅ Reconnexion Supabase réussie');
+      
+      // Synchroniser tous les types de données
+      await this.forceUserSync();
+      await this.syncLocalToSupabase();
+      
+      console.log('🎉 SYNCHRONISATION GLOBALE TERMINÉE');
+      return true;
+    } catch (error) {
+      console.error('❌ Erreur synchronisation globale:', error);
+      return false;
+    }
+  }
+
   // ==================== SYNCHRONISATION ====================
   
   private async syncLocalToSupabase(): Promise<void> {
     try {
+      console.log('🔄 SYNCHRONISATION MISSIONS LOCALES VERS SUPABASE...');
       const localMissions = this.getMissionsFromLocalStorage();
       
       if (localMissions.length > 0) {
-        console.log(`🔄 Synchronisation de ${localMissions.length} missions locales vers Supabase...`);
+        console.log(`📊 ${localMissions.length} missions locales à synchroniser`);
         
         for (const mission of localMissions) {
           try {
             const existing = await SupabaseService.getMissionById(mission.id);
             if (!existing) {
               await SupabaseService.createMission(mission);
-              console.log(`✅ Mission ${mission.reference} synchronisée`);
+              console.log(`✅ Mission synchronisée: ${mission.reference}`);
             }
           } catch (error: any) {
             if (!error.message.includes('duplicate')) {
-              console.error(`❌ Erreur sync mission ${mission.reference}:`, error);
+              console.error(`❌ Erreur sync: ${mission.reference}`, error);
             }
           }
         }
+        console.log('✅ SYNCHRONISATION MISSIONS TERMINÉE');
+      } else {
+        console.log('ℹ️ Aucune mission locale à synchroniser');
       }
     } catch (error) {
-      console.error('❌ Erreur synchronisation:', error);
+      console.error('❌ ERREUR SYNCHRONISATION MISSIONS:', error);
     }
   }
 
@@ -752,11 +825,6 @@ export class UnifiedDatabase {
     differences: Record<string, number>;
   }> {
     return await GlobalSyncService.verifyDataIntegrity();
-  }
-
-  // Nouvelle méthode pour forcer la synchronisation
-  async forceGlobalSync(): Promise<boolean> {
-    return await GlobalSyncService.forceSync();
   }
 
   // Obtenir le statut de synchronisation

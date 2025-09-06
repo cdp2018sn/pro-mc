@@ -7,7 +7,7 @@ export class SupabaseService {
   
   static async testConnection(): Promise<boolean> {
     try {
-      console.log('🔍 Test de connexion Supabase...');
+      console.log('🔍 TEST CONNEXION SUPABASE...');
       
       const { error } = await supabase
         .from('users')
@@ -15,15 +15,15 @@ export class SupabaseService {
         .limit(1);
       
       if (error) {
-        console.log('⚠️ Supabase non disponible (peut être normal):', error.message);
-        console.log('💡 Assurez-vous d\'avoir exécuté le script SQL dans Supabase Dashboard');
+        console.log('❌ SUPABASE NON DISPONIBLE:', error.message);
+        console.log('🚨 EXÉCUTEZ LE SCRIPT SQL DANS SUPABASE DASHBOARD !');
         return false;
       }
       
-      console.log('✅ Connexion Supabase réussie');
+      console.log('✅ CONNEXION SUPABASE RÉUSSIE');
       return true;
     } catch (error) {
-      console.log('⚠️ Supabase non disponible:', error);
+      console.log('❌ SUPABASE INACCESSIBLE:', error);
       return false;
     }
   }
@@ -92,6 +92,8 @@ export class SupabaseService {
 
   static async createUser(userData: CreateUserData & { id?: string; permissions?: any }): Promise<User> {
     try {
+      console.log('📡 CRÉATION UTILISATEUR DANS SUPABASE:', userData.email);
+      
       const userToCreate = {
         id: userData.id || crypto.randomUUID(),
         email: userData.email,
@@ -112,9 +114,12 @@ export class SupabaseService {
         .single();
 
       if (error) {
+        console.log('❌ ERREUR CRÉATION UTILISATEUR SUPABASE:', error.message);
         throw new Error(`Erreur création utilisateur: ${error.message}`);
       }
 
+      console.log('✅ UTILISATEUR CRÉÉ DANS SUPABASE:', data.email);
+      
       return {
         id: data.id,
         email: data.email,
@@ -246,6 +251,8 @@ export class SupabaseService {
 
   static async createMission(missionData: Omit<Mission, 'id' | 'created_at' | 'updated_at'>): Promise<Mission> {
     try {
+      console.log('📡 CRÉATION MISSION DANS SUPABASE:', missionData.reference);
+      
       const missionToCreate = {
         reference: missionData.reference,
         title: missionData.title,
@@ -273,9 +280,12 @@ export class SupabaseService {
         .single();
 
       if (error) {
+        console.log('❌ ERREUR CRÉATION MISSION SUPABASE:', error.message);
         throw new Error(`Erreur création mission: ${error.message}`);
       }
 
+      console.log('✅ MISSION CRÉÉE DANS SUPABASE:', data.reference);
+      
       return {
         id: data.id,
         reference: data.reference,
