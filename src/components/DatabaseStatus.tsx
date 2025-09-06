@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { db } from '../database/supabaseDb';
+import { db } from '../database/localStorageDb';
 import { SupabaseService } from '../services/supabaseService';
 import { Mission, Document, Finding, Sanction, Remark } from '../types/mission';
 import { toast } from 'react-hot-toast';
