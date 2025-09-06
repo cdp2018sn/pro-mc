@@ -21,12 +21,7 @@ export class SupabaseService {
       
       const { error } = await Promise.race([testPromise, timeoutPromise]) as any;
       
-      // Test avec timeout pour éviter les blocages
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Timeout')), 5000)
-      );
-      
-      const { error } = await Promise.race([testPromise, timeoutPromise]) as any;
+      if (error) {
         if (error.message === 'Timeout') {
           console.log('❌ SUPABASE TIMEOUT - Problème de connexion réseau');
           console.log('🌐 Vérifiez votre connexion internet et les paramètres CORS');
@@ -34,8 +29,6 @@ export class SupabaseService {
           console.log('❌ SUPABASE NON DISPONIBLE:', error.message);
           console.log('🚨 EXÉCUTEZ LE SCRIPT SQL DANS SUPABASE DASHBOARD !');
         }
-        if (error.message === 'Timeout') {
-          console.log('❌ SUPABASE TIMEOUT - Problème de connexion réseau');
         return false;
       }
       
