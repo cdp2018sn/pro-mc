@@ -1,5 +1,6 @@
 import { Mission, Document, Sanction, Remark, Finding, ReponseSuivi } from '../types/mission';
 import { SupabaseService } from '../services/supabaseService';
+import { GlobalSyncService } from '../services/globalSyncService';
 
 // Base de données unifiée avec Supabase comme source principale et localStorage comme fallback
 export class UnifiedDatabase {
@@ -15,6 +16,10 @@ export class UnifiedDatabase {
     try {
       console.log('🔧 Initialisation de la base de données unifiée...');
       this.useSupabase = await SupabaseService.testConnection();
+      
+      // Initialiser le service de synchronisation globale
+      await GlobalSyncService.initialize();
+      
       this.isInitialized = true;
       
       if (this.useSupabase) {
@@ -85,6 +90,10 @@ export class UnifiedDatabase {
         console.log('📡 Ajout mission dans Supabase...');
         const newMission = await SupabaseService.createMission(mission);
         this.addMissionToLocalStorage(newMission);
+        
+        // Synchronisation globale
+        await GlobalSyncService.syncMission('create', newMission);
+        
         console.log('✅ Mission ajoutée dans Supabase et localStorage');
         return newMission;
       } catch (error) {
@@ -107,6 +116,10 @@ export class UnifiedDatabase {
         console.log('📡 Mise à jour mission dans Supabase...');
         await SupabaseService.updateMission(id, updates);
         this.updateMissionInLocalStorage(id, updates);
+        
+        // Synchronisation globale
+        await GlobalSyncService.syncMission('update', { id, ...updates });
+        
         console.log('✅ Mission mise à jour dans Supabase et localStorage');
         return;
       } catch (error) {
@@ -128,6 +141,10 @@ export class UnifiedDatabase {
         console.log('📡 Suppression mission dans Supabase...');
         await SupabaseService.deleteMission(id);
         this.deleteMissionFromLocalStorage(id);
+        
+        // Synchronisation globale
+        await GlobalSyncService.syncMission('delete', { id });
+        
         console.log('✅ Mission supprimée dans Supabase et localStorage');
         return;
       } catch (error) {
@@ -167,6 +184,10 @@ export class UnifiedDatabase {
       try {
         await SupabaseService.createDocument(documentData);
         this.addDocumentToLocalStorage(missionId, document);
+        
+        // Synchronisation globale
+        await GlobalSyncService.syncDocument('create', { ...documentData, mission_id: missionId });
+        
         return;
       } catch (error) {
         console.error('❌ Erreur Supabase document, fallback localStorage:', error);
@@ -241,6 +262,10 @@ export class UnifiedDatabase {
       try {
         await SupabaseService.createFinding(fullFindingData);
         this.addFindingToLocalStorage(missionId, findingData);
+        
+        // Synchronisation globale
+        await GlobalSyncService.syncFinding('create', fullFindingData);
+        
         return;
       } catch (error) {
         console.error('❌ Erreur Supabase finding, fallback localStorage:', error);
@@ -295,6 +320,10 @@ export class UnifiedDatabase {
       try {
         await SupabaseService.createSanction(fullSanctionData);
         this.addSanctionToLocalStorage(missionId, sanctionData);
+        
+        // Synchronisation globale
+        await GlobalSyncService.syncSanction('create', fullSanctionData);
+        
         return;
       } catch (error) {
         console.error('❌ Erreur Supabase sanction, fallback localStorage:', error);
@@ -312,6 +341,10 @@ export class UnifiedDatabase {
       try {
         await SupabaseService.updateSanction(sanctionId, updates);
         this.updateSanctionInLocalStorage(sanctionId, updates);
+        
+        // Synchronisation globale
+        await GlobalSyncService.syncSanction('update', { id: sanctionId, ...updates });
+        
         return;
       } catch (error) {
         console.error('❌ Erreur Supabase mise à jour sanction, fallback localStorage:', error);
@@ -329,6 +362,10 @@ export class UnifiedDatabase {
       try {
         await SupabaseService.deleteSanction(sanctionId);
         this.deleteSanctionFromLocalStorage(sanctionId);
+        
+        // Synchronisation globale
+        await GlobalSyncService.syncSanction('delete', { id: sanctionId });
+        
         return;
       } catch (error) {
         console.error('❌ Erreur Supabase suppression sanction, fallback localStorage:', error);
@@ -369,6 +406,10 @@ export class UnifiedDatabase {
       try {
         await SupabaseService.createRemark(remarkData);
         this.addRemarkToLocalStorage(missionId, content);
+        
+        // Synchronisation globale
+        await GlobalSyncService.syncRemark('create', remarkData);
+        
         return;
       } catch (error) {
         console.error('❌ Erreur Supabase remarque, fallback localStorage:', error);
@@ -697,6 +738,25 @@ export class UnifiedDatabase {
 
   getConnectionStatus(): 'supabase' | 'localStorage' {
     return this.useSupabase ? 'supabase' : 'localStorage';
+  }
+
+  // Nouvelle méthode pour vérifier l'intégrité des données
+  async verifyDataIntegrity(): Promise<{
+    local: Record<string, number>;
+    supabase: Record<string, number>;
+    differences: Record<string, number>;
+  }> {
+    return await GlobalSyncService.verifyDataIntegrity();
+  }
+
+  // Nouvelle méthode pour forcer la synchronisation
+  async forceGlobalSync(): Promise<boolean> {
+    return await GlobalSyncService.forceSync();
+  }
+
+  // Obtenir le statut de synchronisation
+  getGlobalSyncStatus(): 'connected' | 'offline' | 'syncing' {
+    return GlobalSyncService.getConnectionStatus();
   }
 
   // ==================== MÉTHODES PUBLIQUES POUR COMPATIBILITÉ ====================

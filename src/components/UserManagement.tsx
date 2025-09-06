@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { authService } from '../services/authService';
 import { User, CreateUserData, UserRole, ROLE_PERMISSIONS } from '../types/auth';
+import { GlobalSyncStatus } from './GlobalSyncStatus';
 
 // Mapping des permissions en français
 const PERMISSION_LABELS: Record<string, string> = {
@@ -208,6 +209,9 @@ export const UserManagement: React.FC = () => {
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Gestion des utilisateurs</h1>
         <p className="text-gray-600">Créez et gérez les comptes utilisateurs avec différents niveaux d'accès.</p>
       </div>
+
+      {/* Statut de synchronisation globale */}
+      <GlobalSyncStatus />
 
       {/* Informations de sécurité */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">

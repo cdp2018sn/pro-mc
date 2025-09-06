@@ -1,5 +1,6 @@
 import { User, LoginCredentials, CreateUserData, UpdateUserData, ROLE_PERMISSIONS, UserRole, UserWithPassword, Permissions as UserPermissions } from '../types/auth';
 import { SupabaseService } from './supabaseService';
+import { GlobalSyncService } from './globalSyncService';
 
 // Fonction simple de hachage de mot de passe (pour la démo)
 function hashPassword(password: string): string {
@@ -339,6 +340,10 @@ class AuthService {
           phone: newUser.phone,
           password: userData.password
         });
+        
+        // Synchronisation globale
+        await GlobalSyncService.syncUser('create', newUser);
+        
         console.log('✅ Utilisateur sauvegardé dans Supabase:', newUser.email);
       } catch (error) {
         console.log('⚠️ Erreur sauvegarde Supabase, utilisateur local uniquement:', error);
@@ -370,6 +375,10 @@ class AuthService {
       try {
         console.log('🔄 Mise à jour utilisateur dans Supabase...');
         await SupabaseService.updateUser(userId, updates);
+        
+        // Synchronisation globale
+        await GlobalSyncService.syncUser('update', updatedUser);
+        
         console.log('✅ Utilisateur mis à jour dans Supabase:', updatedUser.email);
       } catch (error) {
         console.log('⚠️ Erreur mise à jour Supabase:', error);
@@ -398,6 +407,10 @@ class AuthService {
       try {
         console.log('🔄 Suppression utilisateur dans Supabase...');
         await SupabaseService.deleteUser(userId);
+        
+        // Synchronisation globale
+        await GlobalSyncService.syncUser('delete', { id: userId });
+        
         console.log('✅ Utilisateur supprimé dans Supabase:', deletedUser.email);
       } catch (error) {
         console.log('⚠️ Erreur suppression Supabase:', error);
