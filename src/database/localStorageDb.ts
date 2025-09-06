@@ -1,256 +1,373 @@
-import { Mission, Document, ReponseSuivi, Sanction, Remark, Finding } from '../types/mission';
-import Dexie, { Table } from 'dexie';
+import { Mission, Document, Sanction, Remark, Finding } from '../types/mission';
+import { SupabaseService } from '../services/supabaseService';
 
-class LocalStorageDatabase extends Dexie {
-  missions!: Table<Mission>;
-  remarks!: Table<Remark>;
-  findings!: Table<Finding>;
-  sanctions!: Table<Sanction>;
-  documents!: Table<Document>;
+// Base de données unifiée avec Supabase comme source principale et localStorage comme fallback
+export class UnifiedDatabase {
+  private useSupabase = true;
+  private isInitialized = false;
 
   constructor() {
-    super('MissionDatabase');
-    this.version(1).stores({
-      missions: '++id, reference, title, status, organization, start_date, end_date, type_mission, motif_controle',
-      remarks: '++id, mission_id, content, created_at, updated_at',
-      findings: '++id, mission_id, type, description, date_constat, created_at, updated_at',
-      sanctions: '++id, mission_id, type, description, decision_date, amount, created_at, updated_at',
-      documents: '++id, mission_id, title, type, file_path, created_at'
-    });
+    this.initialize();
   }
 
-  // Missions
+  private async initialize() {
+    try {
+      this.useSupabase = await SupabaseService.testConnection();
+      this.isInitialized = true;
+      
+      if (this.useSupabase) {
+        console.log('✅ Base de données Supabase connectée');
+        // Synchroniser les données locales vers Supabase si nécessaire
+        await this.syncLocalToSupabase();
+      } else {
+        console.log('⚠️ Fallback vers localStorage');
+      }
+    } catch (error) {
+      console.error('Erreur lors de l\'initialisation:', error);
+      this.useSupabase = false;
+      this.isInitialized = true;
+    }
+  }
+
+  private async ensureInitialized() {
+    if (!this.isInitialized) {
+      await this.initialize();
+    }
+  }
+
+  // ==================== MISSIONS ====================
+  
   async getAllMissions(): Promise<Mission[]> {
-    const missions = await this.missions.toArray();
+    await this.ensureInitialized();
     
-    // Pour chaque mission, récupérer les données associées
-    const missionsWithData = await Promise.all(
-      missions.map(async (mission) => {
-        const [findings, sanctions, remarks, documents] = await Promise.all([
-          this.getFindingsForMission(mission.id),
-          this.getSanctionsForMission(mission.id),
-          this.getRemarksForMission(mission.id),
-          this.getDocumentsForMission(mission.id)
-        ]);
-        
-        return {
-          ...mission,
-          findings,
-          sanctions,
-          remarks,
-          documents
-        };
-      })
-    );
+    if (this.useSupabase) {
+      try {
+        const missions = await SupabaseService.getMissions();
+        // Sauvegarder en localStorage pour le cache
+        this.saveMissionsToLocalStorage(missions);
+        return missions;
+      } catch (error) {
+        console.error('Erreur Supabase, fallback localStorage:', error);
+        this.useSupabase = false;
+      }
+    }
     
-    return missionsWithData;
+    return this.getMissionsFromLocalStorage();
   }
 
   async addMission(mission: Omit<Mission, 'id'>): Promise<Mission> {
-    const id = await this.missions.add({
-      ...mission,
-      id: Date.now().toString(),
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    });
-    return { ...mission, id: id.toString() };
+    await this.ensureInitialized();
+    
+    if (this.useSupabase) {
+      try {
+        const newMission = await SupabaseService.createMission(mission);
+        // Aussi sauvegarder en localStorage
+        this.addMissionToLocalStorage(newMission);
+        return newMission;
+      } catch (error) {
+        console.error('Erreur Supabase, fallback localStorage:', error);
+        this.useSupabase = false;
+      }
+    }
+    
+    return this.addMissionToLocalStorage(mission);
   }
 
-  async updateMission(id: string, data: Partial<Mission>): Promise<void> {
-    await this.missions.update(id, {
-      ...data,
-      updated_at: new Date().toISOString()
-    });
+  async updateMission(id: string, updates: Partial<Mission>): Promise<void> {
+    await this.ensureInitialized();
+    
+    if (this.useSupabase) {
+      try {
+        await SupabaseService.updateMission(id, updates);
+        // Aussi mettre à jour en localStorage
+        this.updateMissionInLocalStorage(id, updates);
+        return;
+      } catch (error) {
+        console.error('Erreur Supabase, fallback localStorage:', error);
+        this.useSupabase = false;
+      }
+    }
+    
+    this.updateMissionInLocalStorage(id, updates);
   }
 
   async deleteMission(id: string): Promise<void> {
-    await this.missions.delete(id);
-    // Supprimer également les données associées
-    await this.remarks.where('mission_id').equals(id).delete();
-    await this.findings.where('mission_id').equals(id).delete();
-    await this.sanctions.where('mission_id').equals(id).delete();
-    await this.documents.where('mission_id').equals(id).delete();
+    await this.ensureInitialized();
+    
+    if (this.useSupabase) {
+      try {
+        await SupabaseService.deleteMission(id);
+        // Aussi supprimer de localStorage
+        this.deleteMissionFromLocalStorage(id);
+        return;
+      } catch (error) {
+        console.error('Erreur Supabase, fallback localStorage:', error);
+        this.useSupabase = false;
+      }
+    }
+    
+    this.deleteMissionFromLocalStorage(id);
   }
 
-  // Remarques
-  async addRemark(missionId: string, content: string): Promise<void> {
-    await this.remarks.add({
-      id: Date.now().toString(),
-      mission_id: missionId,
-      content,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    });
-  }
-
-  async getRemarksForMission(missionId: string): Promise<Remark[]> {
-    return await this.remarks.where('mission_id').equals(missionId).toArray();
-  }
-
-  // Findings
-  async addFinding(missionId: string, finding: Omit<Finding, 'id' | 'mission_id'>): Promise<void> {
-    await this.findings.add({
-      id: Date.now().toString(),
-      mission_id: missionId,
-      ...finding,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    });
-  }
-
-  async getFindingsForMission(missionId: string): Promise<Finding[]> {
-    return await this.findings.where('mission_id').equals(missionId).toArray();
-  }
-
-  // Sanctions
-  async addSanction(missionId: string, sanction: Omit<Sanction, 'id' | 'mission_id'>): Promise<void> {
-    await this.sanctions.add({
-      id: Date.now().toString(),
-      mission_id: missionId,
-      ...sanction,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    });
-  }
-
-  async getSanctionsForMission(missionId: string): Promise<Sanction[]> {
-    return await this.sanctions.where('mission_id').equals(missionId).toArray();
-  }
-
-  async updateSanction(sanctionId: string, updates: Partial<Sanction>): Promise<void> {
-    await this.sanctions.update(sanctionId, {
-      ...updates,
-      updated_at: new Date().toISOString()
-    });
-  }
-
-  async deleteSanction(sanctionId: string): Promise<void> {
-    await this.sanctions.delete(sanctionId);
-  }
-
-  // Documents
-  async addDocument(missionId: string, document: Omit<Document, 'id' | 'mission_id'>): Promise<void> {
-    await this.documents.add({
-      id: Date.now().toString(),
-      mission_id: missionId,
-      ...document,
-      created_at: new Date().toISOString()
-    });
-  }
-
+  // ==================== DOCUMENTS ====================
+  
   async getDocumentsForMission(missionId: string): Promise<Document[]> {
-    return await this.documents.where('mission_id').equals(missionId).toArray();
+    await this.ensureInitialized();
+    
+    if (this.useSupabase) {
+      try {
+        return await SupabaseService.getDocuments(missionId);
+      } catch (error) {
+        console.error('Erreur Supabase, fallback localStorage:', error);
+        this.useSupabase = false;
+      }
+    }
+    
+    return this.getDocumentsFromLocalStorage(missionId);
+  }
+
+  async addDocument(missionId: string, document: Omit<Document, 'id' | 'mission_id'>): Promise<void> {
+    await this.ensureInitialized();
+    
+    const documentData = { ...document, mission_id: missionId };
+    
+    if (this.useSupabase) {
+      try {
+        await SupabaseService.createDocument(documentData);
+        return;
+      } catch (error) {
+        console.error('Erreur Supabase, fallback localStorage:', error);
+        this.useSupabase = false;
+      }
+    }
+    
+    this.addDocumentToLocalStorage(missionId, document);
   }
 
   async deleteDocument(missionId: string, documentId: string): Promise<void> {
-    await this.documents.delete(documentId);
-  }
-
-  // Réponses de suivi
-  async addReponseSuivi(missionId: string, reponse: ReponseSuivi): Promise<void> {
-    const mission = await this.missions.get(missionId);
-    if (!mission) throw new Error('Mission non trouvée');
-
-    mission.reponses_suivi = mission.reponses_suivi || [];
-    mission.reponses_suivi.push(reponse);
-    await this.missions.put(mission);
-  }
-
-  async updateMissionReponseStatus(missionId: string, reponseRecue: boolean, dateReponse?: string): Promise<void> {
-    const mission = await this.missions.get(missionId);
-    if (!mission) throw new Error('Mission non trouvée');
-
-    mission.reponse_recue = reponseRecue;
-    if (dateReponse) {
-      mission.date_derniere_reponse = dateReponse;
-    }
-    mission.updated_at = new Date().toISOString();
-
-    await this.missions.put(mission);
-  }
-
-  // Initialisation avec des données d'exemple
-  async initializeWithSampleData(sampleMissions: Omit<Mission, 'id'>[]): Promise<void> {
-    await this.delete();
-    await this.open();
-    for (const mission of sampleMissions) {
-      await this.addMission(mission);
-    }
-  }
-
-  // Fonction pour mettre à jour automatiquement les statuts des missions
-  async updateMissionStatuses(): Promise<{ updated: number; started: number; completed: number }> {
-    const now = new Date();
-    let updated = 0;
-    let started = 0;
-    let completed = 0;
-
-    try {
-      // Récupérer toutes les missions
-      const allMissions = await this.getAllMissions();
-
-      for (const mission of allMissions) {
-        // Ignorer les missions marquées pour ne pas changer automatiquement
-        if (mission.ignoreAutoStatusChange) {
-          console.log(`⚠️ Mission ${mission.reference} ignorée (flag ignoreAutoStatusChange)`);
-          continue;
-        }
-
-        let statusChanged = false;
-        const startDate = new Date(mission.start_date);
-        const endDate = new Date(mission.end_date);
-
-        // Missions planifiées qui doivent passer en cours
-        if (mission.status === 'PLANIFIEE' && now >= startDate) {
-          mission.status = 'EN_COURS';
-          mission.updated_at = new Date().toISOString();
-          statusChanged = true;
-          started++;
-        }
-        // Missions en cours qui doivent se terminer
-        else if (mission.status === 'EN_COURS' && now > endDate) {
-          mission.status = 'TERMINEE';
-          mission.updated_at = new Date().toISOString();
-          statusChanged = true;
-          completed++;
-        }
-
-        // Mettre à jour la mission si le statut a changé
-        if (statusChanged) {
-          await this.updateMission(mission.id, mission);
-          updated++;
-        }
+    await this.ensureInitialized();
+    
+    if (this.useSupabase) {
+      try {
+        await SupabaseService.deleteDocument(documentId);
+        return;
+      } catch (error) {
+        console.error('Erreur Supabase, fallback localStorage:', error);
+        this.useSupabase = false;
       }
-
-      console.log(`✅ Mise à jour automatique: ${updated} missions mises à jour (${started} commencées, ${completed} terminées)`);
-      return { updated, started, completed };
-    } catch (error) {
-      console.error('❌ Erreur lors de la mise à jour automatique des statuts:', error);
-      throw error;
     }
+    
+    this.deleteDocumentFromLocalStorage(missionId, documentId);
   }
 
-  // Fonction pour vérifier les missions qui vont changer de statut
+  // ==================== CONSTATATIONS ====================
+  
+  async getFindingsForMission(missionId: string): Promise<Finding[]> {
+    await this.ensureInitialized();
+    
+    if (this.useSupabase) {
+      try {
+        return await SupabaseService.getFindings(missionId);
+      } catch (error) {
+        console.error('Erreur Supabase, fallback localStorage:', error);
+        this.useSupabase = false;
+      }
+    }
+    
+    return this.getFindingsFromLocalStorage(missionId);
+  }
+
+  async addFinding(missionId: string, finding: string | Omit<Finding, 'id' | 'mission_id'>): Promise<void> {
+    await this.ensureInitialized();
+    
+    let findingData: Omit<Finding, 'id' | 'mission_id'>;
+    
+    if (typeof finding === 'string') {
+      findingData = {
+        type: 'OBSERVATION',
+        description: finding,
+        reference_legale: '',
+        recommandation: '',
+        delai_correction: 30,
+        date_constat: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+    } else {
+      findingData = finding;
+    }
+    
+    const fullFindingData = { ...findingData, mission_id: missionId };
+    
+    if (this.useSupabase) {
+      try {
+        await SupabaseService.createFinding(fullFindingData);
+        return;
+      } catch (error) {
+        console.error('Erreur Supabase, fallback localStorage:', error);
+        this.useSupabase = false;
+      }
+    }
+    
+    this.addFindingToLocalStorage(missionId, findingData);
+  }
+
+  // ==================== SANCTIONS ====================
+  
+  async getSanctionsForMission(missionId: string): Promise<Sanction[]> {
+    await this.ensureInitialized();
+    
+    if (this.useSupabase) {
+      try {
+        return await SupabaseService.getSanctions(missionId);
+      } catch (error) {
+        console.error('Erreur Supabase, fallback localStorage:', error);
+        this.useSupabase = false;
+      }
+    }
+    
+    return this.getSanctionsFromLocalStorage(missionId);
+  }
+
+  async addSanction(missionId: string, sanction: string | Omit<Sanction, 'id' | 'mission_id'>): Promise<void> {
+    await this.ensureInitialized();
+    
+    let sanctionData: Omit<Sanction, 'id' | 'mission_id'>;
+    
+    if (typeof sanction === 'string') {
+      sanctionData = {
+        type: 'AVERTISSEMENT',
+        description: sanction,
+        decision_date: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+    } else {
+      sanctionData = sanction;
+    }
+    
+    const fullSanctionData = { ...sanctionData, mission_id: missionId };
+    
+    if (this.useSupabase) {
+      try {
+        await SupabaseService.createSanction(fullSanctionData);
+        return;
+      } catch (error) {
+        console.error('Erreur Supabase, fallback localStorage:', error);
+        this.useSupabase = false;
+      }
+    }
+    
+    this.addSanctionToLocalStorage(missionId, sanctionData);
+  }
+
+  async updateSanction(sanctionId: string, updates: Partial<Sanction>): Promise<void> {
+    await this.ensureInitialized();
+    
+    if (this.useSupabase) {
+      try {
+        await SupabaseService.updateSanction(sanctionId, updates);
+        return;
+      } catch (error) {
+        console.error('Erreur Supabase, fallback localStorage:', error);
+        this.useSupabase = false;
+      }
+    }
+    
+    this.updateSanctionInLocalStorage(sanctionId, updates);
+  }
+
+  async deleteSanction(sanctionId: string): Promise<void> {
+    await this.ensureInitialized();
+    
+    if (this.useSupabase) {
+      try {
+        await SupabaseService.deleteSanction(sanctionId);
+        return;
+      } catch (error) {
+        console.error('Erreur Supabase, fallback localStorage:', error);
+        this.useSupabase = false;
+      }
+    }
+    
+    this.deleteSanctionFromLocalStorage(sanctionId);
+  }
+
+  // ==================== REMARQUES ====================
+  
+  async getRemarksForMission(missionId: string): Promise<Remark[]> {
+    await this.ensureInitialized();
+    
+    if (this.useSupabase) {
+      try {
+        return await SupabaseService.getRemarks(missionId);
+      } catch (error) {
+        console.error('Erreur Supabase, fallback localStorage:', error);
+        this.useSupabase = false;
+      }
+    }
+    
+    return this.getRemarksFromLocalStorage(missionId);
+  }
+
+  async addRemark(missionId: string, content: string): Promise<void> {
+    await this.ensureInitialized();
+    
+    const remarkData = {
+      mission_id: missionId,
+      content,
+      author_name: 'Utilisateur actuel'
+    };
+    
+    if (this.useSupabase) {
+      try {
+        await SupabaseService.createRemark(remarkData);
+        return;
+      } catch (error) {
+        console.error('Erreur Supabase, fallback localStorage:', error);
+        this.useSupabase = false;
+      }
+    }
+    
+    this.addRemarkToLocalStorage(missionId, content);
+  }
+
+  // ==================== UTILITAIRES ====================
+  
+  async updateMissionStatuses(): Promise<{ updated: number; started: number; completed: number }> {
+    await this.ensureInitialized();
+    
+    if (this.useSupabase) {
+      try {
+        return await SupabaseService.updateMissionStatuses();
+      } catch (error) {
+        console.error('Erreur Supabase, fallback localStorage:', error);
+        this.useSupabase = false;
+      }
+    }
+    
+    return this.updateStatusesInLocalStorage();
+  }
+
   async checkUpcomingStatusChanges(): Promise<{
     startingSoon: Mission[];
     endingSoon: Mission[];
   }> {
+    await this.ensureInitialized();
+    
+    const missions = await this.getAllMissions();
     const now = new Date();
     const oneDayFromNow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
     const oneWeekFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
-    const allMissions = await this.getAllMissions();
-
-    const startingSoon = allMissions.filter(mission => {
-      // Ignorer les missions marquées pour ne pas changer automatiquement
+    const startingSoon = missions.filter(mission => {
       if (mission.ignoreAutoStatusChange) return false;
       if (mission.status !== 'PLANIFIEE') return false;
       const startDate = new Date(mission.start_date);
       return startDate >= now && startDate <= oneDayFromNow;
     });
 
-    const endingSoon = allMissions.filter(mission => {
-      // Ignorer les missions marquées pour ne pas changer automatiquement
+    const endingSoon = missions.filter(mission => {
       if (mission.ignoreAutoStatusChange) return false;
       if (mission.status !== 'EN_COURS') return false;
       const endDate = new Date(mission.end_date);
@@ -259,6 +376,266 @@ class LocalStorageDatabase extends Dexie {
 
     return { startingSoon, endingSoon };
   }
+
+  // ==================== MÉTHODES LOCALSTORAGE ====================
+  
+  private getMissionsFromLocalStorage(): Mission[] {
+    try {
+      const stored = localStorage.getItem('cdp_missions');
+      return stored ? JSON.parse(stored) : [];
+    } catch (error) {
+      console.error('Erreur localStorage:', error);
+      return [];
+    }
+  }
+
+  private saveMissionsToLocalStorage(missions: Mission[]): void {
+    try {
+      localStorage.setItem('cdp_missions', JSON.stringify(missions));
+    } catch (error) {
+      console.error('Erreur sauvegarde localStorage:', error);
+    }
+  }
+
+  private addMissionToLocalStorage(missionData: Omit<Mission, 'id'> | Mission): Mission {
+    const missions = this.getMissionsFromLocalStorage();
+    
+    const newMission: Mission = {
+      ...missionData,
+      id: (missionData as Mission).id || `mission-${Date.now()}`,
+      created_at: (missionData as Mission).created_at || new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+    
+    missions.push(newMission);
+    this.saveMissionsToLocalStorage(missions);
+    return newMission;
+  }
+
+  private updateMissionInLocalStorage(id: string, updates: Partial<Mission>): void {
+    const missions = this.getMissionsFromLocalStorage();
+    const index = missions.findIndex(m => m.id === id);
+    if (index !== -1) {
+      missions[index] = { 
+        ...missions[index], 
+        ...updates, 
+        updated_at: new Date().toISOString() 
+      };
+      this.saveMissionsToLocalStorage(missions);
+    }
+  }
+
+  private deleteMissionFromLocalStorage(id: string): void {
+    const missions = this.getMissionsFromLocalStorage();
+    const filtered = missions.filter(m => m.id !== id);
+    this.saveMissionsToLocalStorage(filtered);
+  }
+
+  private getDocumentsFromLocalStorage(missionId: string): Document[] {
+    const missions = this.getMissionsFromLocalStorage();
+    const mission = missions.find(m => m.id === missionId);
+    return mission?.documents || [];
+  }
+
+  private addDocumentToLocalStorage(missionId: string, document: Omit<Document, 'id' | 'mission_id'>): void {
+    const missions = this.getMissionsFromLocalStorage();
+    const mission = missions.find(m => m.id === missionId);
+    if (mission) {
+      if (!mission.documents) mission.documents = [];
+      mission.documents.push({
+        ...document,
+        id: `doc-${Date.now()}`,
+        mission_id: missionId
+      });
+      this.saveMissionsToLocalStorage(missions);
+    }
+  }
+
+  private deleteDocumentFromLocalStorage(missionId: string, documentId: string): void {
+    const missions = this.getMissionsFromLocalStorage();
+    const mission = missions.find(m => m.id === missionId);
+    if (mission && mission.documents) {
+      mission.documents = mission.documents.filter(d => d.id !== documentId);
+      this.saveMissionsToLocalStorage(missions);
+    }
+  }
+
+  private getFindingsFromLocalStorage(missionId: string): Finding[] {
+    const missions = this.getMissionsFromLocalStorage();
+    const mission = missions.find(m => m.id === missionId);
+    return mission?.findings || [];
+  }
+
+  private addFindingToLocalStorage(missionId: string, finding: Omit<Finding, 'id' | 'mission_id'>): void {
+    const missions = this.getMissionsFromLocalStorage();
+    const mission = missions.find(m => m.id === missionId);
+    if (mission) {
+      if (!mission.findings) mission.findings = [];
+      mission.findings.push({
+        ...finding,
+        id: `finding-${Date.now()}`,
+        mission_id: missionId,
+        created_at: finding.created_at || new Date().toISOString(),
+        updated_at: finding.updated_at || new Date().toISOString()
+      });
+      this.saveMissionsToLocalStorage(missions);
+    }
+  }
+
+  private getSanctionsFromLocalStorage(missionId: string): Sanction[] {
+    const missions = this.getMissionsFromLocalStorage();
+    const mission = missions.find(m => m.id === missionId);
+    return mission?.sanctions || [];
+  }
+
+  private addSanctionToLocalStorage(missionId: string, sanction: Omit<Sanction, 'id' | 'mission_id'>): void {
+    const missions = this.getMissionsFromLocalStorage();
+    const mission = missions.find(m => m.id === missionId);
+    if (mission) {
+      if (!mission.sanctions) mission.sanctions = [];
+      mission.sanctions.push({
+        ...sanction,
+        id: `sanction-${Date.now()}`,
+        mission_id: missionId,
+        created_at: sanction.created_at || new Date().toISOString(),
+        updated_at: sanction.updated_at || new Date().toISOString()
+      });
+      this.saveMissionsToLocalStorage(missions);
+    }
+  }
+
+  private updateSanctionInLocalStorage(sanctionId: string, updates: Partial<Sanction>): void {
+    const missions = this.getMissionsFromLocalStorage();
+    for (const mission of missions) {
+      if (mission.sanctions) {
+        const index = mission.sanctions.findIndex(s => s.id === sanctionId);
+        if (index !== -1) {
+          mission.sanctions[index] = { 
+            ...mission.sanctions[index], 
+            ...updates, 
+            updated_at: new Date().toISOString() 
+          };
+          this.saveMissionsToLocalStorage(missions);
+          break;
+        }
+      }
+    }
+  }
+
+  private deleteSanctionFromLocalStorage(sanctionId: string): void {
+    const missions = this.getMissionsFromLocalStorage();
+    for (const mission of missions) {
+      if (mission.sanctions) {
+        mission.sanctions = mission.sanctions.filter(s => s.id !== sanctionId);
+        this.saveMissionsToLocalStorage(missions);
+        break;
+      }
+    }
+  }
+
+  private getRemarksFromLocalStorage(missionId: string): Remark[] {
+    const missions = this.getMissionsFromLocalStorage();
+    const mission = missions.find(m => m.id === missionId);
+    return mission?.remarks || [];
+  }
+
+  private addRemarkToLocalStorage(missionId: string, content: string): void {
+    const missions = this.getMissionsFromLocalStorage();
+    const mission = missions.find(m => m.id === missionId);
+    if (mission) {
+      if (!mission.remarks) mission.remarks = [];
+      mission.remarks.push({
+        id: `remark-${Date.now()}`,
+        mission_id: missionId,
+        content,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      });
+      this.saveMissionsToLocalStorage(missions);
+    }
+  }
+
+  private updateStatusesInLocalStorage(): { updated: number; started: number; completed: number } {
+    const missions = this.getMissionsFromLocalStorage();
+    const now = new Date();
+    let started = 0;
+    let completed = 0;
+
+    for (const mission of missions) {
+      if (mission.ignoreAutoStatusChange) continue;
+
+      const startDate = new Date(mission.start_date);
+      const endDate = new Date(mission.end_date);
+
+      if (mission.status === 'PLANIFIEE' && now >= startDate) {
+        mission.status = 'EN_COURS';
+        mission.updated_at = new Date().toISOString();
+        started++;
+      } else if (mission.status === 'EN_COURS' && now > endDate) {
+        mission.status = 'TERMINEE';
+        mission.updated_at = new Date().toISOString();
+        completed++;
+      }
+    }
+
+    this.saveMissionsToLocalStorage(missions);
+    return { updated: started + completed, started, completed };
+  }
+
+  // ==================== SYNCHRONISATION ====================
+  
+  private async syncLocalToSupabase(): Promise<void> {
+    try {
+      const localMissions = this.getMissionsFromLocalStorage();
+      
+      if (localMissions.length > 0) {
+        console.log(`🔄 Synchronisation de ${localMissions.length} missions locales vers Supabase...`);
+        
+        for (const mission of localMissions) {
+          try {
+            // Vérifier si la mission existe déjà
+            const existing = await SupabaseService.getMissionById(mission.id);
+            if (!existing) {
+              await SupabaseService.createMission(mission);
+              console.log(`✅ Mission ${mission.reference} synchronisée`);
+            }
+          } catch (error) {
+            // Ignorer les erreurs de doublons
+            if (!error.message.includes('duplicate')) {
+              console.error(`❌ Erreur sync mission ${mission.reference}:`, error);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('❌ Erreur lors de la synchronisation:', error);
+    }
+  }
+
+  // Méthodes pour la compatibilité avec l'ancien code
+  async updateMissionReponseStatus(missionId: string, reponseRecue: boolean, dateReponse?: string): Promise<void> {
+    await this.updateMission(missionId, {
+      reponse_recue: reponseRecue,
+      date_derniere_reponse: dateReponse
+    });
+  }
+
+  async addReponseSuivi(missionId: string, reponse: any): Promise<void> {
+    // Pour l'instant, stocker dans les remarques
+    await this.addRemark(missionId, `Réponse du ${reponse.date_reponse}: ${reponse.contenu}`);
+  }
+
+  // Méthode pour forcer la reconnexion Supabase
+  async reconnectSupabase(): Promise<boolean> {
+    this.useSupabase = await SupabaseService.testConnection();
+    return this.useSupabase;
+  }
+
+  // Obtenir le statut de la connexion
+  getConnectionStatus(): 'supabase' | 'localStorage' {
+    return this.useSupabase ? 'supabase' : 'localStorage';
+  }
 }
 
-export const db = new LocalStorageDatabase(); 
+// Instance unique de la base de données
+export const db = new UnifiedDatabase();

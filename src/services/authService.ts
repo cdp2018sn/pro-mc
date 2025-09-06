@@ -1,6 +1,5 @@
 import { User, LoginCredentials, CreateUserData, UpdateUserData, ROLE_PERMISSIONS, UserRole, UserWithPassword, Permissions as UserPermissions } from '../types/auth';
 import { SupabaseService } from './supabaseService';
-import { supabase } from '../config/supabase';
 
 // Fonction simple de hachage de mot de passe (pour la démo)
 function hashPassword(password: string): string {
@@ -9,7 +8,7 @@ function hashPassword(password: string): string {
 
 // Utilisateur administrateur par défaut
 const DEFAULT_ADMIN: UserWithPassword = {
-  id: '550e8400-e29b-41d4-a716-446655440000', // UUID valide pour l'admin par défaut
+  id: '550e8400-e29b-41d4-a716-446655440000',
   email: 'abdoulaye.niang@cdp.sn',
   name: 'Abdoulaye Niang',
   role: 'admin',
@@ -18,7 +17,7 @@ const DEFAULT_ADMIN: UserWithPassword = {
   isActive: true,
   department: 'Direction',
   phone: '',
-  password: '' // L'admin par défaut n'a pas de hash
+  password: ''
 };
 
 // Clés de stockage localStorage
@@ -29,23 +28,65 @@ const LOGIN_ATTEMPTS_STORAGE_KEY = 'cdp_login_attempts';
 const MAX_LOGIN_ATTEMPTS = 5;
 const BLOCK_DURATION = 15 * 60 * 1000; // 15 minutes
 
-const API_BASE_URL = ''; // Pas de serveur local, utiliser Supabase directement
-
 class AuthService {
   private users: UserWithPassword[] = [];
   private loginAttempts: Record<string, { count: number; blockedUntil?: number }> = {};
+  private isSupabaseConnected = false;
 
   constructor() {
     this.loadUsers();
     this.loadLoginAttempts();
-    // Synchronisation Supabase activée
-    console.log('✅ Mode Supabase activé - synchronisation cloud disponible');
+    this.initializeSupabase();
   }
 
-  // Synchroniser avec Supabase
+  private async initializeSupabase() {
+    try {
+      this.isSupabaseConnected = await SupabaseService.testConnection();
+      
+      if (this.isSupabaseConnected) {
+        console.log('✅ Supabase connecté - synchronisation activée');
+        await this.syncWithSupabase();
+        await this.ensureAdminExists();
+      } else {
+        console.log('⚠️ Supabase non disponible - mode local');
+      }
+    } catch (error) {
+      console.error('❌ Erreur initialisation Supabase:', error);
+      this.isSupabaseConnected = false;
+    }
+  }
+
+  private async ensureAdminExists() {
+    try {
+      if (this.isSupabaseConnected) {
+        // Vérifier si l'admin existe dans Supabase
+        const adminExists = await SupabaseService.getUserByEmail('abdoulaye.niang@cdp.sn');
+        
+        if (!adminExists) {
+          console.log('🔧 Création de l\'admin par défaut dans Supabase...');
+          await SupabaseService.createUser({
+            id: DEFAULT_ADMIN.id,
+            email: DEFAULT_ADMIN.email,
+            name: DEFAULT_ADMIN.name,
+            role: DEFAULT_ADMIN.role,
+            permissions: DEFAULT_ADMIN.permissions,
+            isActive: DEFAULT_ADMIN.isActive,
+            department: DEFAULT_ADMIN.department,
+            phone: DEFAULT_ADMIN.phone,
+            password: 'Passer'
+          });
+          console.log('✅ Admin créé dans Supabase');
+        }
+      }
+    } catch (error) {
+      console.error('❌ Erreur lors de la création de l\'admin:', error);
+    }
+  }
+
   private async syncWithSupabase(): Promise<void> {
     try {
-      // Supabase est toujours configuré avec les valeurs par défaut
+      if (!this.isSupabaseConnected) return;
+      
       console.log('🔄 Synchronisation avec Supabase...');
       
       // Récupérer les utilisateurs de Supabase
@@ -56,11 +97,10 @@ class AuthService {
       
       for (const supabaseUser of supabaseUsers) {
         if (!localUserIds.has(supabaseUser.id)) {
-          // Ajouter les nouveaux utilisateurs de Supabase
           const newUser: UserWithPassword = {
             ...supabaseUser,
-            password: '', // Le mot de passe n'est pas stocké localement pour la sécurité
-            isActive: supabaseUser.is_active || true
+            password: '', // Le mot de passe n'est pas stocké localement
+            isActive: supabaseUser.isActive || true
           };
           this.users.push(newUser);
           console.log(`✅ Utilisateur ajouté depuis Supabase: ${supabaseUser.email}`);
@@ -74,18 +114,16 @@ class AuthService {
     }
   }
 
-  // Charger les utilisateurs depuis localStorage
   private loadUsers(): void {
     try {
       const storedUsers = localStorage.getItem(USERS_STORAGE_KEY);
       if (storedUsers) {
         this.users = JSON.parse(storedUsers);
         // S'assurer que l'admin par défaut existe toujours
-        if (!this.users.find(u => u.id === '550e8400-e29b-41d4-a716-446655440000')) {
+        if (!this.users.find(u => u.id === DEFAULT_ADMIN.id)) {
           this.users.unshift(DEFAULT_ADMIN);
         }
       } else {
-        // Première initialisation
         this.users = [DEFAULT_ADMIN];
         this.saveUsers();
       }
@@ -96,7 +134,6 @@ class AuthService {
     }
   }
 
-  // Sauvegarder les utilisateurs dans localStorage
   private saveUsers(): void {
     try {
       localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(this.users));
@@ -105,13 +142,11 @@ class AuthService {
     }
   }
 
-  // Charger les tentatives de connexion depuis localStorage
   private loadLoginAttempts(): void {
     try {
       const storedAttempts = localStorage.getItem(LOGIN_ATTEMPTS_STORAGE_KEY);
       if (storedAttempts) {
         this.loginAttempts = JSON.parse(storedAttempts);
-        // Nettoyer les tentatives expirées
         const now = Date.now();
         Object.keys(this.loginAttempts).forEach(email => {
           const attempts = this.loginAttempts[email];
@@ -126,7 +161,6 @@ class AuthService {
     }
   }
 
-  // Sauvegarder les tentatives de connexion dans localStorage
   private saveLoginAttempts(): void {
     try {
       localStorage.setItem(LOGIN_ATTEMPTS_STORAGE_KEY, JSON.stringify(this.loginAttempts));
@@ -135,34 +169,10 @@ class AuthService {
     }
   }
 
-  // Connexion utilisateur
   async login(credentials: LoginCredentials): Promise<User> {
     const { email, password } = credentials;
-    // Tentative d'authentification via l'API pour récupérer un JWT
-    try {
-      const resp = await fetch(`${API_BASE_URL}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
-      });
-      if (resp.ok) {
-        const { user, token } = await resp.json();
-        if (token) {
-          localStorage.setItem('jwt_token', token);
-        }
-        // Créer la session alignée avec le format existant
-        const sessionData = {
-          user,
-          expiresAt: Date.now() + 24 * 60 * 60 * 1000
-        };
-        localStorage.setItem('session', btoa(JSON.stringify(sessionData)));
-        return user as User;
-      }
-    } catch (e) {
-      // ignore: fallback local
-    }
 
-    // Vérifier si le compte est bloqué (désactivé temporairement pour l'admin)
+    // Vérifier si le compte est bloqué (sauf pour l'admin)
     const attempts = this.loginAttempts[email];
     if (attempts && attempts.blockedUntil && attempts.blockedUntil > Date.now() && email !== 'abdoulaye.niang@cdp.sn') {
       const remainingTime = Math.ceil((attempts.blockedUntil - Date.now()) / 1000 / 60);
@@ -205,11 +215,13 @@ class AuthService {
     user.last_login = new Date().toISOString();
     this.saveUsers();
 
-    // Synchroniser avec Supabase
-    try {
-      await SupabaseService.updateUser(user.id, { last_login: user.last_login });
-    } catch (error) {
-      console.error('Erreur lors de la synchronisation avec Supabase:', error);
+    // Synchroniser avec Supabase si connecté
+    if (this.isSupabaseConnected) {
+      try {
+        await SupabaseService.updateUser(user.id, { last_login: user.last_login });
+      } catch (error) {
+        console.error('Erreur lors de la synchronisation avec Supabase:', error);
+      }
     }
 
     // Créer la session
@@ -226,20 +238,17 @@ class AuthService {
         department: user.department,
         phone: user.phone
       },
-      expiresAt: Date.now() + 24 * 60 * 60 * 1000 // 24 heures
+      expiresAt: Date.now() + 24 * 60 * 60 * 1000
     };
 
     localStorage.setItem('session', btoa(JSON.stringify(sessionData)));
     return user;
   }
 
-  // Déconnexion
   logout(): void {
     localStorage.removeItem('session');
-    localStorage.removeItem('jwt_token');
   }
 
-  // Obtenir l'utilisateur actuel
   getCurrentUser(): User | null {
     try {
       const sessionData = localStorage.getItem('session');
@@ -258,24 +267,20 @@ class AuthService {
     }
   }
 
-  // Vérifier si l'utilisateur est connecté
   isAuthenticated(): boolean {
     return this.getCurrentUser() !== null;
   }
 
-  // Créer un nouvel utilisateur
   async createUser(userData: CreateUserData): Promise<User> {
     // Vérifier si l'email existe déjà
     if (this.users.find(u => u.email === userData.email)) {
       throw new Error('Un utilisateur avec cet email existe déjà');
     }
 
-    // Valider le mot de passe
     if (userData.password.length < 8) {
       throw new Error('Le mot de passe doit contenir au moins 8 caractères');
     }
 
-    // Générer un UUID valide pour l'utilisateur
     const generateUUID = () => {
       return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
         const r = Math.random() * 16 | 0;
@@ -301,36 +306,35 @@ class AuthService {
     this.users.push(newUser);
     this.saveUsers();
 
-    // Sauvegarder dans Supabase
-    try {
-      console.log('🔄 Sauvegarde de l\'utilisateur dans Supabase...');
-      const supabaseUser = await SupabaseService.createUser({
-        id: newUser.id,
-        email: newUser.email,
-        name: newUser.name,
-        role: newUser.role,
-        permissions: newUser.permissions,
-        isActive: newUser.isActive,
-        department: newUser.department,
-        phone: newUser.phone,
-        password: userData.password
-      });
-      console.log('✅ Utilisateur sauvegardé dans Supabase:', supabaseUser.email);
-    } catch (error) {
-      console.error('❌ Erreur lors de la sauvegarde dans Supabase:', error.message);
-      console.log('💾 Utilisateur sauvegardé localement uniquement');
-      // Ne pas échouer complètement si Supabase n'est pas disponible
+    // Sauvegarder dans Supabase si connecté
+    if (this.isSupabaseConnected) {
+      try {
+        console.log('🔄 Sauvegarde de l\'utilisateur dans Supabase...');
+        await SupabaseService.createUser({
+          id: newUser.id,
+          email: newUser.email,
+          name: newUser.name,
+          role: newUser.role,
+          permissions: newUser.permissions,
+          isActive: newUser.isActive,
+          department: newUser.department,
+          phone: newUser.phone,
+          password: userData.password
+        });
+        console.log('✅ Utilisateur sauvegardé dans Supabase:', newUser.email);
+      } catch (error) {
+        console.error('❌ Erreur lors de la sauvegarde dans Supabase:', error);
+        console.log('💾 Utilisateur sauvegardé localement uniquement');
+      }
     }
 
     return { ...newUser, password: undefined } as User;
   }
 
-  // Obtenir tous les utilisateurs
   getAllUsers(): User[] {
     return this.users.map(user => ({ ...user, password: undefined } as User));
   }
 
-  // Mettre à jour un utilisateur
   async updateUser(userId: string, updates: UpdateUserData): Promise<User | null> {
     const userIndex = this.users.findIndex(u => u.id === userId);
     if (userIndex === -1) return null;
@@ -344,24 +348,22 @@ class AuthService {
     this.users[userIndex] = updatedUser;
     this.saveUsers();
 
-    // Mettre à jour dans Supabase
-    try {
-      console.log('🔄 Mise à jour de l\'utilisateur dans Supabase...');
-      await SupabaseService.updateUser(userId, {
-        ...updates,
-      });
-      console.log('✅ Utilisateur mis à jour dans Supabase:', updatedUser.email);
-    } catch (error) {
-      console.error('❌ Erreur lors de la mise à jour dans Supabase:', error);
+    // Mettre à jour dans Supabase si connecté
+    if (this.isSupabaseConnected) {
+      try {
+        console.log('🔄 Mise à jour de l\'utilisateur dans Supabase...');
+        await SupabaseService.updateUser(userId, updates);
+        console.log('✅ Utilisateur mis à jour dans Supabase:', updatedUser.email);
+      } catch (error) {
+        console.error('❌ Erreur lors de la mise à jour dans Supabase:', error);
+      }
     }
 
     return { ...updatedUser, password: undefined } as User;
   }
 
-  // Supprimer un utilisateur
   async deleteUser(userId: string): Promise<boolean> {
-    // Empêcher la suppression de l'admin principal
-    if (userId === 'admin-1') {
+    if (userId === DEFAULT_ADMIN.id) {
       throw new Error('Impossible de supprimer l\'administrateur principal');
     }
 
@@ -374,62 +376,50 @@ class AuthService {
     this.users.splice(userIndex, 1);
     this.saveUsers();
 
-    // Supprimer dans Supabase
-    try {
-      console.log('🔄 Suppression de l\'utilisateur dans Supabase...');
-      await SupabaseService.deleteUser(userId);
-      console.log('✅ Utilisateur supprimé dans Supabase:', deletedUser.email);
-    } catch (error) {
-      console.error('❌ Erreur lors de la suppression dans Supabase:', error);
+    // Supprimer dans Supabase si connecté
+    if (this.isSupabaseConnected) {
+      try {
+        console.log('🔄 Suppression de l\'utilisateur dans Supabase...');
+        await SupabaseService.deleteUser(userId);
+        console.log('✅ Utilisateur supprimé dans Supabase:', deletedUser.email);
+      } catch (error) {
+        console.error('❌ Erreur lors de la suppression dans Supabase:', error);
+      }
     }
 
     return true;
   }
 
-  // Changer le mot de passe
   async changePassword(userId: string, currentPassword: string, newPassword: string): Promise<boolean> {
-
-    // Valider le nouveau mot de passe
     if (newPassword.length < 8) {
       throw new Error('Le nouveau mot de passe doit contenir au moins 8 caractères');
     }
 
-    // Changer le mot de passe via Supabase
-    try {
-      // Pour Supabase, utiliser l'authentification intégrée
-      const { error } = await supabase.auth.updateUser({
-        password: newPassword
-      });
-      
-      if (error) {
-        throw new Error(error.message);
-      }
-    } catch (e: any) {
-      throw new Error(e?.message || 'Erreur lors du changement de mot de passe');
-    }
-
-    // Mettre à jour localement (sans le mot de passe)
     const user = this.users.find(u => u.id === userId);
     if (!user) return false;
+    
+    // Vérifier l'ancien mot de passe (sauf pour l'admin)
+    if (user.email !== 'abdoulaye.niang@cdp.sn') {
+      if (user.password !== hashPassword(currentPassword)) {
+        throw new Error('Mot de passe actuel incorrect');
+      }
+    }
     
     user.password = hashPassword(newPassword);
     this.saveUsers();
     return true;
   }
 
-  // Obtenir les permissions d'un utilisateur
   getUserPermissions(userId: string): UserPermissions {
     const user = this.users.find(u => u.id === userId);
     return user?.permissions || ROLE_PERMISSIONS[user?.role || 'user'];
   }
 
-  // Vérifier si un utilisateur a une permission spécifique
   hasPermission(userId: string, permission: keyof UserPermissions): boolean {
     const permissions = this.getUserPermissions(userId);
     return permissions[permission] || false;
   }
 
-  // Obtenir les rôles disponibles avec descriptions
   getAvailableRoles(): Array<{value: UserRole, label: string, description: string}> {
     return [
       {
@@ -460,13 +450,11 @@ class AuthService {
     ];
   }
 
-  // Réinitialiser les utilisateurs (pour les tests)
   resetUsers(): void {
     this.users = [DEFAULT_ADMIN];
     this.saveUsers();
   }
 
-  // Enregistrer une tentative de connexion échouée
   private recordLoginAttempt(email: string): void {
     if (!this.loginAttempts[email]) {
       this.loginAttempts[email] = { count: 0 };
@@ -481,12 +469,26 @@ class AuthService {
     this.saveLoginAttempts();
   }
 
-  // Debug: Afficher les utilisateurs dans la console
   debugUsers(): void {
     console.log('=== DEBUG UTILISATEURS ===');
     console.log('Utilisateurs stockés:', this.users);
+    console.log('Supabase connecté:', this.isSupabaseConnected);
     console.log('localStorage users:', localStorage.getItem(USERS_STORAGE_KEY));
     console.log('========================');
+  }
+
+  // Méthode pour forcer la reconnexion Supabase
+  async reconnectSupabase(): Promise<boolean> {
+    this.isSupabaseConnected = await SupabaseService.testConnection();
+    if (this.isSupabaseConnected) {
+      await this.syncWithSupabase();
+      await this.ensureAdminExists();
+    }
+    return this.isSupabaseConnected;
+  }
+
+  getConnectionStatus(): 'supabase' | 'localStorage' {
+    return this.isSupabaseConnected ? 'supabase' : 'localStorage';
   }
 }
 
