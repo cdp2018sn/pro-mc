@@ -15,6 +15,9 @@ export class UnifiedDatabase {
   private async initialize() {
     try {
       console.log('🔧 Initialisation de la base de données unifiée...');
+      
+      // Forcer l'utilisation de Supabase en priorité
+      console.log('🔍 Test de connexion Supabase...');
       this.useSupabase = await SupabaseService.testConnection();
       
       // Initialiser le service de synchronisation globale
@@ -24,9 +27,11 @@ export class UnifiedDatabase {
       
       if (this.useSupabase) {
         console.log('✅ Base de données Supabase connectée');
+        console.log('🔄 Synchronisation avec Supabase activée');
         await this.syncLocalToSupabase();
       } else {
         console.log('⚠️ Mode localStorage - Supabase non disponible');
+        console.log('💡 Les données seront synchronisées dès que Supabase sera disponible');
         this.ensureLocalStorageStructure();
       }
     } catch (error) {

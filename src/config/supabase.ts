@@ -35,13 +35,14 @@ export const initializeSupabase = async (): Promise<boolean> => {
   try {
     console.log('🔍 Test de connexion Supabase...');
     
-    const { data, error } = await supabase
+    // Test simple de connexion
+    const { error } = await supabase
       .from('users')
-      .select('count')
+      .select('id')
       .limit(1);
     
     if (error) {
-      console.log('⚠️ Supabase non disponible:', error.message);
+      console.log('⚠️ Supabase non disponible (normal si première fois):', error.message);
       return false;
     }
     

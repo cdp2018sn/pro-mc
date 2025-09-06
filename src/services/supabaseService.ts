@@ -7,13 +7,16 @@ export class SupabaseService {
   
   static async testConnection(): Promise<boolean> {
     try {
-      const { data, error } = await supabase
+      console.log('🔍 Test de connexion Supabase...');
+      
+      const { error } = await supabase
         .from('users')
-        .select('count')
+        .select('id')
         .limit(1);
       
       if (error) {
-        console.log('⚠️ Supabase non disponible:', error.message);
+        console.log('⚠️ Supabase non disponible (peut être normal):', error.message);
+        console.log('💡 Assurez-vous d\'avoir exécuté le script SQL dans Supabase Dashboard');
         return false;
       }
       
