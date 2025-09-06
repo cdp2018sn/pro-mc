@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Mission, Finding } from '../types/mission';
 import { format } from 'date-fns';
-import { fr } from 'date-fns/locale';
+import fr from 'date-fns/locale/fr';
 import { PencilIcon, TrashIcon, CalendarIcon, MapPinIcon, UsersIcon, ChatBubbleLeftIcon, ExclamationTriangleIcon, ChevronDownIcon, ChevronRightIcon, DocumentIcon, BuildingOfficeIcon, ClockIcon, CheckCircleIcon, XCircleIcon, ClockIcon as ClockIconSolid, ChevronUpDownIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { MissionDetails } from './MissionDetails';
 import { toast } from 'react-hot-toast';
