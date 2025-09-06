@@ -21,7 +21,19 @@ export class SupabaseService {
       
       const { error } = await Promise.race([testPromise, timeoutPromise]) as any;
       
-      if (error) {
+      // Test avec timeout pour éviter les blocages
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Timeout')), 5000)
+      );
+      
+      const { error } = await Promise.race([testPromise, timeoutPromise]) as any;
+        if (error.message === 'Timeout') {
+          console.log('❌ SUPABASE TIMEOUT - Problème de connexion réseau');
+          console.log('🌐 Vérifiez votre connexion internet et les paramètres CORS');
+        } else {
+          console.log('❌ SUPABASE NON DISPONIBLE:', error.message);
+          console.log('🚨 EXÉCUTEZ LE SCRIPT SQL DANS SUPABASE DASHBOARD !');
+        }
         if (error.message === 'Timeout') {
           console.log('❌ SUPABASE TIMEOUT - Problème de connexion réseau');
         return false;
@@ -30,7 +42,13 @@ export class SupabaseService {
       console.log('✅ CONNEXION SUPABASE RÉUSSIE');
       return true;
     } catch (error) {
-      console.log('❌ SUPABASE INACCESSIBLE:', error);
+      if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+        console.log('❌ ERREUR CORS/RÉSEAU - Supabase inaccessible');
+        console.log('🔧 Solution: Ajoutez http://localhost:5173 dans les origines autorisées de Supabase');
+        console.log('📍 Dashboard Supabase > Settings > API > Additional Allowed Origins');
+      } else {
+        console.log('❌ SUPABASE INACCESSIBLE:', error);
+      }
       return false;
     }
   }
