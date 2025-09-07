@@ -10,9 +10,14 @@ export class SupabaseService {
       console.log('🔍 TEST CONNEXION SUPABASE...');
       
       // Test avec timeout pour éviter les blocages
-        console.error('Supabase authentication error:', error);
+      const testPromise = supabase
+        .from('users')
         .select('id')
         .limit(1);
+      
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Timeout')), 10000)
+      );
       
       const { error } = await Promise.race([testPromise, timeoutPromise]) as any;
       
@@ -23,6 +28,13 @@ export class SupabaseService {
         } else {
           console.log('❌ SUPABASE NON DISPONIBLE:', error.message);
           if (error.code === 'PGRST002') {
+            console.error('❌ Supabase Schema Cache Error (PGRST002)');
+            console.error('🔧 Solution: Execute the migration script in Supabase Dashboard:');
+            console.error('   1. Go to: https://supabase.com/dashboard/project/zkjhbstofbthnitunzcf');
+            console.error('   2. Navigate to: SQL Editor');
+            console.error('   3. Execute: supabase/migrations/20250906232819_wispy_cloud.sql');
+            console.error('   4. Restart the application');
+          }
         }
         return false;
       }
