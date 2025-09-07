@@ -11,7 +11,9 @@ console.error = (...args) => {
   // Ignorer les erreurs des extensions Chrome
   if (errorMessage.includes('chrome-extension://') || 
       errorMessage.includes('i18next:') ||
-      errorMessage.includes('message port closed')) {
+      errorMessage.includes('message port closed') ||
+      errorMessage.includes('Supabase request failed') ||
+      errorMessage.includes('PGRST002')) {
     return;
   }
   
