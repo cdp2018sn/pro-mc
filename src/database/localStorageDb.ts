@@ -286,6 +286,51 @@ class LocalStorageDB {
     }
   }
 
+  // Mettre à jour automatiquement les statuts des missions
+  async updateMissionStatuses(): Promise<{ updated: number; started: number; completed: number }> {
+    try {
+      const missions = this.getAllMissions();
+      const now = new Date();
+      let started = 0;
+      let completed = 0;
+
+      for (const mission of missions) {
+        if (mission.ignoreAutoStatusChange) continue;
+
+        let shouldUpdate = false;
+        let newStatus = mission.status;
+
+        // Missions planifiées qui doivent commencer
+        if (mission.status === 'PLANIFIEE' && new Date(mission.start_date) <= now) {
+          newStatus = 'EN_COURS';
+          shouldUpdate = true;
+          started++;
+        }
+        // Missions en cours qui doivent se terminer
+        else if (mission.status === 'EN_COURS' && new Date(mission.end_date) <= now) {
+          newStatus = 'TERMINEE';
+          shouldUpdate = true;
+          completed++;
+        }
+
+        if (shouldUpdate) {
+          await this.updateMission(mission.id, {
+            status: newStatus,
+            updated_at: new Date().toISOString()
+          });
+        }
+      }
+
+      return {
+        updated: started + completed,
+        started,
+        completed
+      };
+    } catch (error) {
+      console.error('Erreur updateMissionStatuses:', error);
+      return { updated: 0, started: 0, completed: 0 };
+    }
+  }
   // Clear all data
   clearAllData(): void {
     const tables = ['users', 'missions', 'documents', 'findings', 'sanctions', 'remarks'];
