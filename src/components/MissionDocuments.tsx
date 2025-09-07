@@ -208,21 +208,31 @@ export const MissionDocuments: React.FC<MissionDocumentsProps> = ({ missionId, o
 
   const handleOpenDocument = (document: Document) => {
     if (document.file_content) {
-      // Créer un blob à partir du contenu base64
-      const byteString = atob(document.file_content.split(',')[1]);
-      const mimeString = document.file_content.split(',')[0].split(':')[1].split(';')[0];
-      const ab = new ArrayBuffer(byteString.length);
-      const ia = new Uint8Array(ab);
-      
-      for (let i = 0; i < byteString.length; i++) {
-        ia[i] = byteString.charCodeAt(i);
+      try {
+        // Créer un blob à partir du contenu base64
+        const parts = document.file_content.split(',');
+        if (parts.length === 2) {
+          const byteString = atob(parts[1]);
+          const mimeString = parts[0].split(':')[1].split(';')[0];
+          const ab = new ArrayBuffer(byteString.length);
+          const ia = new Uint8Array(ab);
+          
+          for (let i = 0; i < byteString.length; i++) {
+            ia[i] = byteString.charCodeAt(i);
+          }
+          
+          const blob = new Blob([ab], { type: mimeString });
+          const url = URL.createObjectURL(blob);
+          
+          // Ouvrir dans un nouvel onglet
+          window.open(url, '_blank');
+        } else {
+          toast.error('Format de fichier invalide');
+        }
+      } catch (error) {
+        console.error('Erreur ouverture document:', error);
+        toast.error('Erreur lors de l\'ouverture du document');
       }
-      
-      const blob = new Blob([ab], { type: mimeString });
-      const url = URL.createObjectURL(blob);
-      
-      // Ouvrir dans un nouvel onglet
-      window.open(url, '_blank');
     } else {
       toast.error('Le contenu du document n\'est pas disponible');
     }

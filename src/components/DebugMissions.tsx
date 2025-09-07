@@ -12,14 +12,14 @@ export const DebugMissions: React.FC = () => {
     const loadMissions = async () => {
       try {
         setLoading(true);
-        console.log('🔍 Debug: Chargement des missions...');
         const result = await db.getAllMissions();
-        console.log('📊 Debug: Missions récupérées:', result);
-        setMissions(result);
+        console.log('📊 Debug: Missions récupérées:', result?.length || 0);
+        setMissions(result || []);
         setError(null);
       } catch (err) {
         console.error('❌ Debug: Erreur lors du chargement:', err);
         setError(err instanceof Error ? err.message : 'Erreur inconnue');
+        setMissions([]);
       } finally {
         setLoading(false);
       }
@@ -32,11 +32,12 @@ export const DebugMissions: React.FC = () => {
     try {
       setLoading(true);
       const result = await db.getAllMissions();
-      setMissions(result);
-      console.log('🔄 Debug: Missions après rafraîchissement:', result);
+      setMissions(result || []);
+      console.log('🔄 Debug: Missions après rafraîchissement:', result?.length || 0);
     } catch (err) {
       console.error('❌ Debug: Erreur lors du rafraîchissement:', err);
       setError(err instanceof Error ? err.message : 'Erreur inconnue');
+      setMissions([]);
     } finally {
       setLoading(false);
     }
@@ -44,7 +45,7 @@ export const DebugMissions: React.FC = () => {
 
   const handleClearAll = async () => {
     try {
-      const allMissions = await db.getAllMissions();
+      const allMissions = (await db.getAllMissions()) || [];
       for (const mission of allMissions) {
         await db.deleteMission(mission.id);
       }
@@ -52,6 +53,7 @@ export const DebugMissions: React.FC = () => {
       console.log('🗑️ Debug: Toutes les missions supprimées');
     } catch (err) {
       console.error('❌ Debug: Erreur lors de la suppression:', err);
+      setError('Erreur lors de la suppression');
     }
   };
 

@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { Mission } from '../types/mission';
-import { getDatabase } from '../database/db';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { PostgresService } from '../services/postgresService';
 import { toast } from 'react-hot-toast';
@@ -9,29 +8,6 @@ export const useMissions = () => {
   const [missions, setMissions] = useState<Mission[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  const fetchMissions = async () => {
-    try {
-      const db = await getDatabase();
-      const result = await db.all('SELECT * FROM missions ORDER BY created_at DESC');
-      setMissions(result);
-      setError(null);
-    } catch (err) {
-      console.error('Erreur lors de la récupération des missions:', err);
-      setError('Erreur lors de la récupération des missions');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchMissions();
-  }, []);
-
-  const refreshMissions = () => {
-    setLoading(true);
-    fetchMissions();
-  };
 
   const queryClient = useQueryClient();
 
@@ -96,7 +72,7 @@ export const useMissions = () => {
 
   const addRemarkMutation = useMutation({
     mutationFn: ({ missionId, remark }: { missionId: string; remark: any }) => 
-      supabaseService.addRemark(missionId, remark),
+      PostgresService.addRemark?.(missionId, remark) || Promise.resolve(),
     onSuccess: () => {
       toast.success('Remarque ajoutée avec succès');
       updateMissionsCache();
@@ -108,7 +84,7 @@ export const useMissions = () => {
 
   const addSanctionMutation = useMutation({
     mutationFn: ({ missionId, sanction }: { missionId: string; sanction: any }) => 
-      supabaseService.addSanction(missionId, sanction),
+      PostgresService.addSanction?.(missionId, sanction) || Promise.resolve(),
     onSuccess: () => {
       toast.success('Sanction ajoutée avec succès');
       updateMissionsCache();
@@ -120,7 +96,7 @@ export const useMissions = () => {
 
   const addFindingMutation = useMutation({
     mutationFn: ({ missionId, finding }: { missionId: string; finding: any }) => 
-      supabaseService.addFinding(missionId, finding),
+      PostgresService.addFinding?.(missionId, finding) || Promise.resolve(),
     onSuccess: () => {
       toast.success('Constat ajouté avec succès');
       updateMissionsCache();
@@ -141,8 +117,7 @@ export const useMissions = () => {
     addRemark: addRemarkMutation.mutateAsync,
     addSanction: addSanctionMutation.mutateAsync,
     addFinding: addFindingMutation.mutateAsync,
-    loading,
-    localError: error,
-    refreshMissions
+    loading: isLoading,
+    localError: error
   };
 };

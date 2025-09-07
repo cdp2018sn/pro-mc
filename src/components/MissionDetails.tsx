@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Mission, Finding, Sanction, SanctionType } from '../types/mission';
 import { format } from 'date-fns';
-import { default as fr } from 'date-fns/locale/fr';
+import fr from 'date-fns/locale/fr';
 import { 
   CalendarIcon, 
   MapPinIcon, 

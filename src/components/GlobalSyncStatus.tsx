@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { GlobalSyncService } from '../services/globalSyncService';
+import { SupabaseService } from '../services/supabaseService';
 import { db } from '../database/localStorageDb';
 import { toast } from 'react-hot-toast';
 import { 
@@ -276,7 +277,7 @@ export const GlobalSyncStatus: React.FC = () => {
       {/* Informations d'accessibilité */}
       <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
         <div className="flex items-center">
-          <CloudIcon className="h-5 w-5 text-blue-400 mr-2" />
+                  isActive: user.isActive || true,
           <div>
             <h4 className="text-sm font-medium text-blue-800">
               Accessibilité globale

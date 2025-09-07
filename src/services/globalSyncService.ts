@@ -1,6 +1,5 @@
 import { SupabaseService } from './supabaseService';
-import { Mission, Document, Finding, Sanction, Remark } from '../types/mission';
-import { User } from '../types/auth';
+import { supabase } from '../config/supabase';
 
 /**
  * Service de synchronisation globale pour assurer que toutes les données

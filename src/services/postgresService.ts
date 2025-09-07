@@ -138,4 +138,33 @@ export class PostgresService {
       return { updated: 0, started: 0, completed: 0 };
     }
   }
+
+  // Méthodes pour la compatibilité avec useMissions
+  static async addRemark(missionId: string, remark: any): Promise<void> {
+    try {
+      const content = typeof remark === 'string' ? remark : remark.content;
+      await db.addRemark(missionId, content);
+    } catch (error) {
+      console.error('❌ PostgresService: Erreur ajout remarque:', error);
+      throw error;
+    }
+  }
+
+  static async addSanction(missionId: string, sanction: any): Promise<void> {
+    try {
+      await db.addSanction(missionId, sanction);
+    } catch (error) {
+      console.error('❌ PostgresService: Erreur ajout sanction:', error);
+      throw error;
+    }
+  }
+
+  static async addFinding(missionId: string, finding: any): Promise<void> {
+    try {
+      await db.addFinding(missionId, finding);
+    } catch (error) {
+      console.error('❌ PostgresService: Erreur ajout finding:', error);
+      throw error;
+    }
+  }
 }

@@ -3,10 +3,12 @@ import { Mission } from '../types/mission';
 import { db } from '../database/localStorageDb';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title } from 'chart.js';
 import { format } from 'date-fns';
-import { default as fr } from 'date-fns/locale/fr';
+import fr from 'date-fns/locale/fr';
 import { StatusChangeAlerts } from './StatusChangeAlerts';
 import { IgnoredMissions } from './IgnoredMissions';
 import { ArrowPathIcon } from '@heroicons/react/24/outline';
+import { LoadingSpinner } from './LoadingSpinner';
+import { EmptyState } from './EmptyState';
  
 
 // Enregistrement des composants Chart.js
@@ -37,10 +39,27 @@ export const Dashboard: React.FC<DashboardProps> = ({ missions }) => {
       setStats(calculateStatistics(allMissions));
     } catch (error) {
       console.error('❌ Erreur lors du rafraîchissement:', error);
+      setStats({
+        totalMissions: 0,
+        missionsEnCours: 0,
+        missionsTerminees: 0,
+        missionsEnAttente: 0,
+        tauxCompletion: 0,
+      });
     }
   };
 
   const calculateStatistics = (missions: Mission[]) => {
+    if (!missions || !Array.isArray(missions)) {
+      return {
+        totalMissions: 0,
+        missionsEnCours: 0,
+        missionsTerminees: 0,
+        missionsEnAttente: 0,
+        tauxCompletion: 0,
+      };
+    }
+    
     const enCours = missions.filter(m => m.status === 'EN_COURS').length;
     const terminees = missions.filter(m => m.status === 'TERMINEE').length;
     const enAttente = missions.filter(m => m.status === 'ATTENTE_REPONSE').length;

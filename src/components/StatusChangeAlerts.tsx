@@ -3,6 +3,7 @@ import { Mission } from '../types/mission';
 import { db } from '../database/localStorageDb';
 import { toast } from 'react-hot-toast';
 import { formatSenegalDateOnly } from '../utils/timeUtils';
+import { LoadingSpinner } from './LoadingSpinner';
 
 interface StatusChangeAlertsProps {
   missions: Mission[];
@@ -330,7 +331,7 @@ export const StatusChangeAlerts: React.FC<StatusChangeAlertsProps> = ({ missions
                       <p className="text-sm text-gray-600">Réf: {mission.reference}</p>
                       <p className="text-sm text-gray-600">Organisation: {mission.organization}</p>
                       <p className="text-sm text-red-600">
-                        Date de fin: {new Date(mission.end_date).toLocaleDateString('fr-FR')}
+                        Date de fin: {formatSenegalDateOnly(mission.end_date)}
                       </p>
                       <p className="text-sm text-gray-500">
                         Statut actuel: <span className="font-medium text-blue-600">{mission.status}</span>

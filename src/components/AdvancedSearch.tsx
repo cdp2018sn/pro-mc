@@ -32,7 +32,7 @@ export const AdvancedSearch: React.FC<AdvancedSearchProps> = ({ missions, onSear
   // Mettre à jour les missions locales quand les props changent
   React.useEffect(() => {
     setCurrentMissions(missions);
-    console.log('📋 Missions mises à jour dans AdvancedSearch:', missions.length);
+    console.log('📋 Missions mises à jour dans AdvancedSearch:', missions?.length || 0);
   }, [missions]);
 
 
@@ -55,9 +55,10 @@ export const AdvancedSearch: React.FC<AdvancedSearchProps> = ({ missions, onSear
     try {
       const allMissions = await db.getAllMissions();
       setCurrentMissions(allMissions);
-      console.log('🔄 Données rafraîchies:', allMissions.length, 'missions');
+      console.log('🔄 Données rafraîchies:', allMissions?.length || 0, 'missions');
     } catch (error) {
       console.error('Erreur lors du rafraîchissement:', error);
+      setCurrentMissions([]);
     }
   };
 

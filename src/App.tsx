@@ -1,6 +1,7 @@
  
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { MissionList } from './components/MissionList';
 import { MissionForm } from './components/MissionForm';
 import { Dashboard } from './components/Dashboard';
@@ -547,11 +548,13 @@ function AppContent() {
 // Composant racine qui fournit le QueryClient et l'AuthProvider
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <AppContent />
-      </AuthProvider>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <AppContent />
+        </AuthProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }
 

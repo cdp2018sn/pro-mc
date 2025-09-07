@@ -1,23 +1,23 @@
 import React, { useState } from 'react';
 import { Mission, Finding } from '../types/mission';
 import { format } from 'date-fns';
-import { default as fr } from 'date-fns/locale/fr';
+import fr from 'date-fns/locale/fr';
 import { PencilIcon, TrashIcon, CalendarIcon, MapPinIcon, UsersIcon, ChatBubbleLeftIcon, ExclamationTriangleIcon, ChevronDownIcon, ChevronRightIcon, DocumentIcon, BuildingOfficeIcon, ClockIcon, CheckCircleIcon, XCircleIcon, ClockIcon as ClockIconSolid, ChevronUpDownIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { MissionDetails } from './MissionDetails';
 import { toast } from 'react-hot-toast';
 import { useLocalMissions } from '../hooks/useLocalMissions';
 import { db } from '../database/localStorageDb';
 import { getSenegalNow, toSenegalTime, formatSenegalDateOnly } from '../utils/timeUtils';
+import { LoadingSpinner } from './LoadingSpinner';
+import { EmptyState } from './EmptyState';
 
 export const MissionList: React.FC = () => {
   const { missions, loading, error, refreshMissions } = useLocalMissions();
   const [selectedMission, setSelectedMission] = useState<Mission | null>(null);
-  const [newRemark, setNewRemark] = useState('');
   const [expandedStatus, setExpandedStatus] = useState<string | null>(null);
   const [statusChangeLoading, setStatusChangeLoading] = useState<string | null>(null);
 
-  console.log('🔄 MissionList - Missions reçues:', missions);
-  console.log('📊 Nombre de missions:', missions?.length || 0);
+  console.log('🔄 MissionList - Missions reçues:', missions?.length || 0);
 
   const handleAddRemark = async (missionId: string, content: string) => {
     if (!content.trim()) {
@@ -26,7 +26,6 @@ export const MissionList: React.FC = () => {
     }
     try {
       await db.addRemark(missionId, content);
-      setNewRemark('');
       toast.success('Remarque ajoutée avec succès');
       refreshMissions();
     } catch (error) {
@@ -222,7 +221,7 @@ export const MissionList: React.FC = () => {
 
   // Grouper les missions par statut
   const missionsByStatus: Record<string, Mission[]> = {};
-  missions.forEach(mission => {
+  (missions || []).forEach(mission => {
     if (!missionsByStatus[mission.status]) {
       missionsByStatus[mission.status] = [];
     }
@@ -261,9 +260,7 @@ export const MissionList: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-orange-500"></div>
-      </div>
+      <LoadingSpinner size="lg" message="Chargement des missions..." className="h-64" />
     );
   }
 
@@ -273,6 +270,19 @@ export const MissionList: React.FC = () => {
         <strong className="font-bold">Erreur!</strong>
         <span className="block sm:inline"> {error}</span>
       </div>
+    );
+  }
+
+  if (!missions || missions.length === 0) {
+    return (
+      <EmptyState
+        title="Aucune mission trouvée"
+        description="Commencez par créer votre première mission de contrôle"
+        action={{
+          label: "Créer une mission",
+          onClick: () => window.location.href = '/nouvelle-mission'
+        }}
+      />
     );
   }
 
