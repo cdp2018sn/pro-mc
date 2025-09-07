@@ -60,10 +60,10 @@ export const initializeSupabase = async (): Promise<boolean> => {
 // Initialiser automatiquement
 initializeSupabase().then(success => {
   if (success) {
-    console.log('🎉 Base de données Supabase connectée');
+    // Supabase connecté silencieusement
   } else {
-    console.log('💾 Mode localStorage activé');
+    // Mode localStorage activé silencieusement
   }
 }).catch(error => {
-  console.log('⚠️ Erreur connexion Supabase, mode localStorage:', error);
+  // Erreur Supabase silencieuse, mode localStorage
 });

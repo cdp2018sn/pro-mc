@@ -47,21 +47,12 @@ class AuthService {
       this.isSupabaseConnected = await SupabaseService.testConnection();
       
       if (this.isSupabaseConnected) {
-        console.log('✅ AuthService: Supabase connecté - synchronisation activée');
         await this.syncWithSupabase();
         await this.ensureAdminExists();
       } else {
-        console.log('⚠️ Supabase non disponible');
-        console.log('🔧 SOLUTION CORS:');
-        console.log('1. Allez sur https://supabase.com/dashboard');
-        console.log('2. Sélectionnez votre projet');
-        console.log('3. Settings > API > Additional Allowed Origins');
-        console.log('4. Ajoutez: http://localhost:5173');
-        console.log('💾 Mode local activé en attendant');
         this.ensureLocalAdmin();
       }
     } catch (error) {
-      console.log('⚠️ AuthService: Erreur initialisation Supabase, mode local:', error);
       this.isSupabaseConnected = false;
       this.ensureLocalAdmin();
     }

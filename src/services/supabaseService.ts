@@ -23,23 +23,15 @@ export class SupabaseService {
       
       if (error) {
         if (error.message === 'Timeout') {
-          console.log('❌ SUPABASE TIMEOUT - Problème de connexion réseau');
-          console.log('🌐 Vérifiez votre connexion internet et les paramètres CORS');
+          // Timeout silencieux
         } else {
-          console.log('❌ SUPABASE NON DISPONIBLE:', error.message);
           if (error.code === 'PGRST002') {
-            console.error('❌ Supabase Schema Cache Error (PGRST002)');
-            console.error('🔧 Solution: Execute the migration script in Supabase Dashboard:');
-            console.error('   1. Go to: https://supabase.com/dashboard/project/zkjhbstofbthnitunzcf');
-            console.error('   2. Navigate to: SQL Editor');
-            console.error('   3. Execute: supabase/migrations/20250906232819_wispy_cloud.sql');
-            console.error('   4. Restart the application');
+            // PGRST002 error silencieux - schema cache issue
           }
         }
         return false;
       }
       
-      console.log('✅ CONNEXION SUPABASE RÉUSSIE');
       return true;
     } catch (error: any) {
       // Handle PGRST002 schema cache error specifically
@@ -48,13 +40,10 @@ export class SupabaseService {
         // User should execute migration script in Supabase Dashboard
         throw new Error('PGRST002_SCHEMA_CACHE_ERROR');
       }
-      console.error('Supabase connection test error:', error);
       if (error instanceof Error && error.message.includes('CORS')) {
-        console.log('❌ ERREUR CORS/RÉSEAU - Supabase inaccessible');
-        console.log('🔧 Solution: Ajoutez http://localhost:5173 dans les origines autorisées de Supabase');
-        console.log('📍 Dashboard Supabase > Settings > API > Additional Allowed Origins');
+        // CORS error silencieux
       } else {
-        console.log('❌ SUPABASE INACCESSIBLE:', error);
+        // Autres erreurs silencieuses
       }
       return false;
     }
