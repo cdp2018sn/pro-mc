@@ -3,7 +3,7 @@ import { AuthContextType, AuthState, LoginCredentials, User } from '../types/aut
 import { authService } from '../services/authService';
 import { toast } from 'react-hot-toast';
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function useAuth() {
   const context = useContext(AuthContext);

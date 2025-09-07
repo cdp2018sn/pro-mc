@@ -11,7 +11,7 @@ import { Toaster } from 'react-hot-toast';
 import { StatusIndicator } from './components/StatusIndicator';
 import { ImportMissions } from './components/ImportMissions';
 import { DebugMissions } from './components/DebugMissions';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { AuthProvider, useAuth, AuthContext } from './contexts/AuthContext';
 import { LoginForm } from './components/LoginForm';
 import { UserManagement } from './components/UserManagement';
 import { ChangePassword } from './components/ChangePassword';
