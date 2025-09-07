@@ -13,7 +13,9 @@ console.error = (...args) => {
       errorMessage.includes('i18next:') ||
       errorMessage.includes('message port closed') ||
       errorMessage.includes('Supabase request failed') ||
-      errorMessage.includes('PGRST002')) {
+      errorMessage.includes('PGRST002') ||
+      errorMessage.includes('Supabase non disponible') ||
+      errorMessage.includes('Could not query the database for the schema cache')) {
     return;
   }
   

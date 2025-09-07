@@ -23,10 +23,10 @@ export class SupabaseService {
       
       if (error) {
         if (error.message === 'Timeout') {
-          // Timeout silencieux
+          // Silent timeout
         } else {
           if (error.code === 'PGRST002') {
-            // PGRST002 error silencieux - schema cache issue
+            // Silent PGRST002 error - schema cache issue
           }
         }
         return false;
@@ -41,9 +41,9 @@ export class SupabaseService {
         throw new Error('PGRST002_SCHEMA_CACHE_ERROR');
       }
       if (error instanceof Error && error.message.includes('CORS')) {
-        // CORS error silencieux
+        // Silent CORS error
       } else {
-        // Autres erreurs silencieuses
+        // Other silent errors
       }
       return false;
     }
