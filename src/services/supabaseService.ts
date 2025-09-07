@@ -1,6 +1,5 @@
 import { supabase } from '../config/supabase';
 import { Mission, Document, Finding, Sanction, Remark } from '../types/mission';
-import { MockService } from './mockService';
 import { User, CreateUserData, UpdateUserData } from '../types/auth';
 
 export class SupabaseService {
@@ -11,12 +10,7 @@ export class SupabaseService {
       console.log('🔍 TEST CONNEXION SUPABASE...');
       
       // Test avec timeout pour éviter les blocages
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Timeout')), 5000)
-      );
-      
-      const testPromise = supabase
-        .from('users')
+        console.error('Supabase authentication error:', error);
         .select('id')
         .limit(1);
       
@@ -29,11 +23,6 @@ export class SupabaseService {
         } else {
           console.log('❌ SUPABASE NON DISPONIBLE:', error.message);
           if (error.code === 'PGRST002') {
-            console.warn('Supabase schema cache error detected. Using fallback mode.');
-            this.isConnected = false;
-            return false;
-          }
-          console.error('Supabase connection test failed:', error);
         }
         return false;
       }
@@ -41,7 +30,17 @@ export class SupabaseService {
       console.log('✅ CONNEXION SUPABASE RÉUSSIE');
       return true;
     } catch (error) {
-      if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+      // Handle PGRST002 schema cache error specifically
+      if (error instanceof Error && (error.message.includes('PGRST002') || error.message.includes('schema cache'))) {
+        console.error('❌ Supabase Schema Cache Error (PGRST002)');
+        console.error('🔧 Solution: Execute the migration script in Supabase Dashboard:');
+        console.error('   1. Go to: https://supabase.com/dashboard/project/zkjhbstofbthnitunzcf');
+        console.error('   2. Navigate to: SQL Editor');
+        console.error('   3. Execute: supabase/migrations/20250906232819_wispy_cloud.sql');
+        console.error('   4. Restart the application');
+        return false;
+      }
+      console.error('Supabase connection test error:', error);
         console.log('❌ ERREUR CORS/RÉSEAU - Supabase inaccessible');
         console.log('🔧 Solution: Ajoutez http://localhost:5173 dans les origines autorisées de Supabase');
         console.log('📍 Dashboard Supabase > Settings > API > Additional Allowed Origins');
