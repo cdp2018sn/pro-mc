@@ -53,6 +53,7 @@ export class SupabaseService {
         return false;
       }
       console.error('Supabase connection test error:', error);
+      if (error instanceof Error && error.message.includes('CORS')) {
         console.log('❌ ERREUR CORS/RÉSEAU - Supabase inaccessible');
         console.log('🔧 Solution: Ajoutez http://localhost:5173 dans les origines autorisées de Supabase');
         console.log('📍 Dashboard Supabase > Settings > API > Additional Allowed Origins');
@@ -67,16 +68,16 @@ export class SupabaseService {
   
   static async getUsers(): Promise<User[]> {
     try {
-      if (error.code === 'PGRST002') {
-        console.warn('Schema cache error during authentication, falling back to mock');
-        return MockService.authenticateUser(email, password);
-      }
       const { data, error } = await supabase
         .from('users')
         .select('*')
         .order('created_at', { ascending: false });
 
       if (error) {
+        if (error.code === 'PGRST002') {
+          console.warn('Schema cache error during authentication, falling back to mock');
+          return [];
+        }
         throw new Error(`Erreur utilisateurs: ${error.message}`);
       }
 
