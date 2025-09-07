@@ -41,16 +41,12 @@ export class SupabaseService {
       
       console.log('✅ CONNEXION SUPABASE RÉUSSIE');
       return true;
-    } catch (error) {
+    } catch (error: any) {
       // Handle PGRST002 schema cache error specifically
-      if (error instanceof Error && (error.message.includes('PGRST002') || error.message.includes('schema cache'))) {
-        console.log('❌ Supabase Schema Cache Error (PGRST002)');
-        console.log('🔧 Solution: Execute the migration script in Supabase Dashboard:');
-        console.log('   1. Go to: https://supabase.com/dashboard/project/zkjhbstofbthnitunzcf');
-        console.log('   2. Navigate to: SQL Editor');
-        console.log('   3. Execute: supabase/migrations/20250906232819_wispy_cloud.sql');
-        console.log('   4. Restart the application');
-        return false;
+      if (error.message?.includes('PGRST002') || error.code === 'PGRST002') {
+        // Silently handle PGRST002 error - schema cache issue
+        // User should execute migration script in Supabase Dashboard
+        throw new Error('PGRST002_SCHEMA_CACHE_ERROR');
       }
       console.error('Supabase connection test error:', error);
       if (error instanceof Error && error.message.includes('CORS')) {
