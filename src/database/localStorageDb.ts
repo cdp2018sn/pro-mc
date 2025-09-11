@@ -15,6 +15,14 @@ class UnifiedDatabase {
   private async initialize() {
     try {
       console.log('🔧 Initialisation de la base de données unifiée...');
+      
+      // Vérifier si Supabase est configuré
+      if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
+        console.log('⚠️ Variables Supabase non configurées, mode localStorage uniquement');
+        this.isSupabaseConnected = false;
+        return;
+      }
+
       this.isSupabaseConnected = await SupabaseService.testConnection();
       
       if (this.isSupabaseConnected) {

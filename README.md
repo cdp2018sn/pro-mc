@@ -45,36 +45,42 @@ git clone <votre-repo-url>
 cd pro-mc
 ```
 
-### **2. Installer PostgreSQL**
-- Télécharger depuis : https://www.postgresql.org/download/windows/
-- Installer avec les paramètres par défaut
-- Noter le mot de passe de l'utilisateur `postgres`
-
-### **3. Configuration automatique**
+### **2. Configuration automatique de la base de données**
 ```bash
-# Lancer le script d'installation
-.\setup-postgresql.bat
+# Configuration automatique (détecte Supabase ou utilise localStorage)
+npm run setup-db
 ```
 
-### **4. Démarrer l'application**
+### **3. Démarrer l'application**
 ```bash
-npm start
+npm run dev
 ```
 
-L'application sera disponible sur : **http://localhost:3000**
+L'application sera disponible sur : **http://localhost:5173**
 
-## 🔧 Configuration manuelle
+## 🔧 Configuration de la base de données
 
-### **Créer la base de données**
+### **Option 1: Supabase (Recommandé - Accès global)**
+1. **Créez un compte** sur https://supabase.com
+2. **Créez un nouveau projet**
+3. **Copiez les clés** dans le fichier `.env`
+4. **Exécutez le script SQL** : `supabase/migrations/create_complete_schema.sql`
+5. **Redémarrez** l'application
+
+### **Option 2: localStorage (Local uniquement)**
+Si Supabase n'est pas configuré, l'application utilise automatiquement localStorage.
+
+## 🧪 Tests et vérification
+
 ```bash
-# Se connecter à PostgreSQL
-psql -U postgres
+# Tester la base de données
+npm run test-db
 
-# Créer la base de données
-CREATE DATABASE cdp_missions;
+# Migrer localStorage vers Supabase
+npm run migrate-to-supabase
 
-# Quitter
-\q
+# Initialiser localStorage manuellement
+npm run init-localStorage
 ```
 
 ### **Configurer les variables d'environnement**

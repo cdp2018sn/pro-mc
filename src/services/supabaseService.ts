@@ -6,45 +6,19 @@ export class SupabaseService {
   // ==================== TEST DE CONNEXION ====================
   
   static async testConnection(): Promise<boolean> {
+    if (!supabase) {
+      console.log('⚠️ Client Supabase non initialisé');
+      return false;
+    }
+
     try {
-      console.log('🔍 TEST CONNEXION SUPABASE...');
-      
-      // Test avec timeout pour éviter les blocages
-      const testPromise = supabase
+      const { error } = await supabase
         .from('users')
-        .select('id')
+        .select('count')
         .limit(1);
-      
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Timeout')), 10000)
-      );
-      
-      const { error } = await Promise.race([testPromise, timeoutPromise]) as any;
-      
-      if (error) {
-        if (error.message === 'Timeout') {
-          // Silent timeout
-        } else {
-          if (error.code === 'PGRST002') {
-            // Silent PGRST002 error - schema cache issue
-          }
-        }
-        return false;
-      }
-      
-      return true;
+
+      return !error;
     } catch (error: any) {
-      // Handle PGRST002 schema cache error specifically
-      if (error.message?.includes('PGRST002') || error.code === 'PGRST002') {
-        // Silently handle PGRST002 error - schema cache issue
-        // User should execute migration script in Supabase Dashboard
-        throw new Error('PGRST002_SCHEMA_CACHE_ERROR');
-      }
-      if (error instanceof Error && error.message.includes('CORS')) {
-        // Silent CORS error
-      } else {
-        // Other silent errors
-      }
       return false;
     }
   }
